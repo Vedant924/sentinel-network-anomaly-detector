@@ -1,6 +1,6 @@
 # SENTINEL Event Schema — Draft v1
 
-The C producer and Python consumer must agree on this contract before implementation. Format: JSON Lines (JSONL), one JSON object per line. This is a draft and can change through a reviewed pull request.
+The event producer and detector must agree on this language-independent contract before implementation. Format: JSON Lines (JSONL), one JSON object per line. This is a draft and can change through a reviewed pull request.
 
 ## Example packet event
 
@@ -41,4 +41,4 @@ The IPs in this example are reserved documentation addresses, not real captured 
 - Do not include payload bytes in events.
 
 ## Alert fields
-The Python alert model should include `alert_id`, `timestamp`, `rule_id`, `severity`, `summary`, `window_seconds`, `threshold`, `observed`, and an uncertainty/limitations note. Finalize the exact alert schema alongside the first tested detector rule.
+The detector alert model should include `alert_id`, `timestamp`, `rule_id`, `severity`, `summary`, `window_seconds`, `threshold`, `observed`, and an uncertainty/limitations note. Finalize the exact alert schema alongside the first tested detector rule.
