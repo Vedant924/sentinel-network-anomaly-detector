@@ -36,7 +36,7 @@ def detect_many_destination_ports(events, window_seconds=10, threshold=10):
         source_events.sort(key=lambda item: item[0])
         left = 0
         ports_in_window = defaultdict(int)
-        last_alert_end = None
+        anomaly_active = False
 
         for right, (timestamp, port) in enumerate(source_events):
             ports_in_window[port] += 1
@@ -52,7 +52,9 @@ def detect_many_destination_ports(events, window_seconds=10, threshold=10):
                 left += 1
 
             unique_ports = len(ports_in_window)
-            if unique_ports > threshold and last_alert_end != timestamp:
+            if unique_ports <= threshold:
+                anomaly_active = False
+            elif not anomaly_active:
                 alerts.append(
                     {
                         "rule": "MANY_DESTINATION_PORTS",
@@ -68,6 +70,6 @@ def detect_many_destination_ports(events, window_seconds=10, threshold=10):
                         "timestamp": timestamp,
                     }
                 )
-                last_alert_end = timestamp
+                anomaly_active = True
 
     return alerts
