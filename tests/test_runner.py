@@ -37,6 +37,15 @@ class TestEventLoader(unittest.TestCase):
 
 
 class TestDetectorCommand(unittest.TestCase):
+    def test_normal_file_runs_without_alert(self):
+        output = StringIO()
+        normal_path = Path("data/normal_events.jsonl")
+        with redirect_stdout(output):
+            result = main(["--input", str(normal_path)])
+        self.assertEqual(result, 0)
+        self.assertIn("SENTINEL analyzed 5 event(s).", output.getvalue())
+        self.assertIn("No anomalies detected.", output.getvalue())
+
     def test_sample_file_runs_and_prints_alert(self):
         output = StringIO()
         sample_path = Path("data/sample_events.jsonl")
