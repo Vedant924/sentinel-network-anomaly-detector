@@ -1,5 +1,6 @@
 """Small, explainable rules for detecting suspicious network events."""
 
+import math
 from collections import defaultdict
 
 
@@ -10,26 +11,45 @@ def detect_many_destination_ports(events, window_seconds=10, threshold=10):
     The time window includes events from the current timestamp back to
     current timestamp - window_seconds, inclusive.
     """
-    if window_seconds <= 0:
-        raise ValueError("window_seconds must be greater than 0")
-    if threshold < 1:
-        raise ValueError("threshold must be at least 1")
+    if not isinstance(window_seconds, (int, float)) or isinstance(window_seconds, bool):
+        raise ValueError("window_seconds must be a finite number greater than 0")
+    if not math.isfinite(window_seconds) or window_seconds <= 0:
+        raise ValueError("window_seconds must be a finite number greater than 0")
+    if not isinstance(threshold, int) or isinstance(threshold, bool) or threshold < 1:
+        raise ValueError("threshold must be a positive integer")
 
     events_by_source = defaultdict(list)
     for event in events:
+        if not isinstance(event, dict):
+            raise ValueError("Each event must be an object with timestamp, src_ip, and dst_port")
+
         try:
             timestamp = float(event["timestamp"])
-            source = str(event["src_ip"])
-            port = int(event["dst_port"])
+            source_value = event["src_ip"]
+            port_value = event["dst_port"]
         except (KeyError, TypeError, ValueError) as exc:
             raise ValueError(
                 "Each event must have a numeric timestamp, src_ip, and integer dst_port"
             ) from exc
 
+        if not math.isfinite(timestamp):
+            raise ValueError("timestamp must be a finite number")
+        if not isinstance(source_value, str) or not source_value.strip():
+            raise ValueError("src_ip must be a non-empty string")
+        if isinstance(port_value, bool):
+            raise ValueError("dst_port must be an integer between 1 and 65535")
+        try:
+            port = int(port_value)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError("dst_port must be an integer between 1 and 65535") from exc
+        if isinstance(port_value, float) and not port_value.is_integer():
+            raise ValueError("dst_port must be an integer between 1 and 65535")
+        if isinstance(port_value, str) and str(port) != port_value.strip():
+            raise ValueError("dst_port must be an integer between 1 and 65535")
         if not 1 <= port <= 65535:
             raise ValueError("dst_port must be between 1 and 65535")
 
-        events_by_source[source].append((timestamp, port))
+        events_by_source[source_value].append((timestamp, port))
 
     alerts = []
     for source, source_events in events_by_source.items():
