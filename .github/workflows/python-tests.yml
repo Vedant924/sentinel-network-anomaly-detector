@@ -16,3 +16,5 @@ jobs:
           python-version: "3.12"
       - name: Run unit tests
         run: python -m unittest discover -v
+      - name: Run terminal demo smoke check
+        run: python -m src.demo
