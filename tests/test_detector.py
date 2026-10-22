@@ -46,9 +46,35 @@ class TestManyDestinationPorts(unittest.TestCase):
         with self.assertRaises(ValueError):
             detect_many_destination_ports([event(1, "192.168.1.50", 70000)])
 
+    def test_rejects_fractional_port_instead_of_truncating(self):
+        with self.assertRaisesRegex(ValueError, "dst_port must be an integer"):
+            detect_many_destination_ports([event(1, "192.168.1.50", 80.5)])
+
+    def test_rejects_non_finite_timestamp(self):
+        for timestamp in (float("nan"), float("inf"), float("-inf")):
+            with self.subTest(timestamp=timestamp):
+                with self.assertRaisesRegex(ValueError, "timestamp must be a finite number"):
+                    detect_many_destination_ports([event(timestamp, "192.168.1.50", 80)])
+
+    def test_rejects_empty_source(self):
+        with self.assertRaisesRegex(ValueError, "src_ip must be a non-empty string"):
+            detect_many_destination_ports([event(1, "  ", 80)])
+
+    def test_rejects_non_object_event(self):
+        with self.assertRaisesRegex(ValueError, "Each event must be an object"):
+            detect_many_destination_ports(["not an event"])
+
     def test_rejects_invalid_threshold(self):
         with self.assertRaises(ValueError):
             detect_many_destination_ports([], threshold=0)
+
+    def test_rejects_non_integer_threshold(self):
+        with self.assertRaisesRegex(ValueError, "threshold must be a positive integer"):
+            detect_many_destination_ports([], threshold=1.5)
+
+    def test_rejects_non_finite_window(self):
+        with self.assertRaisesRegex(ValueError, "window_seconds must be a finite number"):
+            detect_many_destination_ports([], window_seconds=float("nan"))
 
 
 if __name__ == "__main__":
