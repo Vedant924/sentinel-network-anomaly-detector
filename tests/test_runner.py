@@ -70,6 +70,37 @@ class TestDetectorCommand(unittest.TestCase):
         self.assertIn("HIGH", report["severity_counts"])
         self.assertEqual(report["alerts"][0]["rule"], "MANY_DESTINATION_PORTS")
 
+    def test_output_option_saves_json_report_to_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output_path = Path(directory) / "sentinel-report.json"
+            console = StringIO()
+            with redirect_stdout(console):
+                result = main([
+                    "--input", "data/sample_events.jsonl",
+                    "--format", "json", "--output", str(output_path),
+                ])
+
+            report = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertEqual(result, 0)
+            self.assertGreater(report["alert_count"], 0)
+            self.assertIn("Report saved to", console.getvalue())
+
+    def test_output_option_saves_text_report_to_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output_path = Path(directory) / "sentinel-report.txt"
+            console = StringIO()
+            with redirect_stdout(console):
+                result = main([
+                    "--input", "data/sample_events.jsonl",
+                    "--output", str(output_path),
+                ])
+
+            saved_report = output_path.read_text(encoding="utf-8")
+            self.assertEqual(result, 0)
+            self.assertIn("SENTINEL analyzed", saved_report)
+            self.assertIn("MANY_DESTINATION_PORTS", saved_report)
+            self.assertIn("Report saved to", console.getvalue())
+
     def test_json_format_emits_empty_alert_list_for_normal_events(self):
         output = StringIO()
         normal_path = Path("data/normal_events.jsonl")
