@@ -33,7 +33,14 @@ Security tools should do more than produce an alert: their decisions should be u
 - Loads synthetic events from a JSON Lines (JSONL) file.
 - Groups events by source and checks distinct destination ports within a configurable time window.
 - Produces readable alerts with the rule name, source, port count, threshold, time window, severity, and reason.
+- Supports `--format json` for machine-readable reports containing event counts, unique source counts, severity summaries, and full alert details.
 - Validates event fields and reports malformed input through the command-line interface.
+
+Example JSON report:
+
+```bash
+python -m src.run_detector --format json
+```
 
 The current rule detects a source contacting **more than** the configured threshold of distinct destination ports within the time window. It is a demonstration rule, not a complete intrusion-detection system.
 
