@@ -46,7 +46,11 @@ def build_audit_trail(
         events.append(
             build_audit_event(
                 stage="tool_policy",
-                decision="ALLOW" if tool_verdict.get("allowed") else "BLOCK",
+                decision=(
+                    "ALLOW" if tool_verdict.get("allowed") else
+                    "APPROVAL_REQUIRED" if tool_verdict.get("rule_triggered") == "HUMAN_APPROVAL_REQUIRED" else
+                    "BLOCK"
+                ),
                 rule_triggered=tool_verdict.get("rule_triggered"),
                 risk_level=tool_verdict.get("risk_level", "HIGH"),
                 reason=tool_verdict.get("reason", "No reason supplied."),
