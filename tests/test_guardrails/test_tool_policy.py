@@ -355,6 +355,12 @@ class TestToolPolicyEngine(unittest.TestCase):
         self.assertFalse(verdict_deep["allowed"])
         self.assertEqual(verdict_deep["rule_triggered"], "MAX_NESTING_DEPTH_EXCEEDED")
 
+        # Invalid max_depth values must fail closed instead of silently weakening the limit.
+        for bad_depth in [0, -1, True, False, 1.5, "20", None]:
+            with self.subTest(bad_depth=bad_depth):
+                with self.assertRaises(ValueError):
+                    evaluate_tool_call("search_docs", {"query": "safe"}, max_depth=bad_depth)
+
         # Custom configurable max_depth parameter
         payload_5 = make_nested_list("safe_token", 5)
         # Depth 5 with max_depth=5 -> ALLOWED
