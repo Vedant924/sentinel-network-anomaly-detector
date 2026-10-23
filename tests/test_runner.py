@@ -55,6 +55,33 @@ class TestDetectorCommand(unittest.TestCase):
         self.assertIn("SENTINEL analyzed", output.getvalue())
         self.assertIn("MANY_DESTINATION_PORTS", output.getvalue())
 
+    def test_json_format_returns_machine_readable_report(self):
+        output = StringIO()
+        sample_path = Path("data/sample_events.jsonl")
+        with redirect_stdout(output):
+            result = main(["--input", str(sample_path), "--format", "json"])
+
+        report = json.loads(output.getvalue())
+        self.assertEqual(result, 0)
+        self.assertEqual(report["tool"], "SENTINEL")
+        self.assertGreater(report["events_analyzed"], 0)
+        self.assertGreaterEqual(report["unique_sources"], 1)
+        self.assertEqual(report["alert_count"], len(report["alerts"]))
+        self.assertIn("HIGH", report["severity_counts"])
+        self.assertEqual(report["alerts"][0]["rule"], "MANY_DESTINATION_PORTS")
+
+    def test_json_format_emits_empty_alert_list_for_normal_events(self):
+        output = StringIO()
+        normal_path = Path("data/normal_events.jsonl")
+        with redirect_stdout(output):
+            result = main(["--input", str(normal_path), "--format", "json"])
+
+        report = json.loads(output.getvalue())
+        self.assertEqual(result, 0)
+        self.assertEqual(report["alert_count"], 0)
+        self.assertEqual(report["alerts"], [])
+        self.assertEqual(report["severity_counts"], {})
+
 
 if __name__ == "__main__":
     unittest.main()
