@@ -49,6 +49,12 @@ def main(argv=None):
         default=10,
         help="Maximum allowed distinct destination ports before alerting (default: 10)",
     )
+    parser.add_argument(
+        "--format",
+        choices=("text", "json"),
+        default="text",
+        help="Output format: readable text or machine-readable JSON (default: text)",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -60,6 +66,22 @@ def main(argv=None):
         )
     except (OSError, ValueError) as exc:
         parser.error(str(exc))
+
+    if args.format == "json":
+        sources = {event["src_ip"] for event in events}
+        report = {
+            "tool": "SENTINEL",
+            "events_analyzed": len(events),
+            "unique_sources": len(sources),
+            "alert_count": len(alerts),
+            "severity_counts": {
+                severity: sum(alert["severity"] == severity for alert in alerts)
+                for severity in sorted({alert["severity"] for alert in alerts})
+            },
+            "alerts": alerts,
+        }
+        print(json.dumps(report, indent=2, sort_keys=True))
+        return 0
 
     print(f"SENTINEL analyzed {len(events)} event(s).")
     if not alerts:
