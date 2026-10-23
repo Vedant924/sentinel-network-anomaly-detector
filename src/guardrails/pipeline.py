@@ -14,6 +14,7 @@ def run_guardrail_pipeline(
     nebius_client: Optional[NebiusClient] = None,
     allowed_dir: str = "data",
     max_depth: int = 20,
+    human_approved: bool = False,
 ) -> Dict[str, Any]:
     """Execute end-to-end security pipeline for user prompt and optional tool call.
 
@@ -33,6 +34,7 @@ def run_guardrail_pipeline(
         nebius_client: Optional configured NebiusClient instance.
         allowed_dir: Permitted sandbox directory for file read tools.
         max_depth: Maximum permitted nesting depth for arguments (default: 20).
+        human_approved: Explicit approval signal supplied by a trusted caller/UI, never by model output.
 
     Returns:
         dict containing:
@@ -165,6 +167,20 @@ def run_guardrail_pipeline(
                     "risk_level": "HIGH",
                     "rule_triggered": "INVALID_TOOL_SPECIFICATION",
                     "reason": "Tool 'name' must be a non-empty string and 'arguments' must be a dictionary.",
+                }
+            elif proposed_tool.get("requires_approval") is True and not human_approved:
+                overall_status = "APPROVAL_REQUIRED"
+                tool_verdict = {
+                    "allowed": False,
+                    "risk_level": "HIGH",
+                    "rule_triggered": "HUMAN_APPROVAL_REQUIRED",
+                    "reason": "This tool call requires explicit human approval before it can proceed.",
+                }
+                simulated_result = {
+                    "status": "APPROVAL_REQUIRED",
+                    "tool": t_name.strip(),
+                    "simulated_output": None,
+                    "policy_verdict": tool_verdict,
                 }
             else:
                 try:
