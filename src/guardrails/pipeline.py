@@ -3,6 +3,7 @@
 from typing import Any, Dict, Optional
 
 from src.guardrails.injection_guard import detect_prompt_injection
+from src.guardrails.audit_log import build_audit_trail
 from src.guardrails.nebius_client import NebiusClient
 from src.guardrails.tool_policy import evaluate_tool_call, simulate_tool_call
 
@@ -64,6 +65,12 @@ def run_guardrail_pipeline(
             "ai_analysis": None,
             "tool_evaluation": None,
             "simulated_tool_result": None,
+            "audit_trail": build_audit_trail({
+                "allowed": False,
+                "risk_level": "HIGH",
+                "rule_triggered": "INVALID_INPUT",
+                "reason": reason_msg,
+            }),
         }
 
     # Step 1: Deterministic prompt injection check (authoritative)
@@ -83,6 +90,12 @@ def run_guardrail_pipeline(
             "ai_analysis": None,
             "tool_evaluation": None,
             "simulated_tool_result": None,
+            "audit_trail": build_audit_trail({
+                "allowed": False,
+                "risk_level": "HIGH",
+                "rule_triggered": "INVALID_INPUT",
+                "reason": str(val_err),
+            }),
         }
 
     # Short-circuit on injection detection: do not call model API, do not evaluate tools
@@ -94,6 +107,7 @@ def run_guardrail_pipeline(
             "ai_analysis": None,
             "tool_evaluation": None,
             "simulated_tool_result": None,
+            "audit_trail": build_audit_trail(injection_verdict),
         }
 
     # Step 2: Advisory NVIDIA Model Analysis via Nebius Token Factory
@@ -190,4 +204,9 @@ def run_guardrail_pipeline(
         "ai_analysis": ai_analysis,
         "tool_evaluation": tool_verdict,
         "simulated_tool_result": simulated_result,
+        "audit_trail": build_audit_trail(
+            injection_verdict,
+            tool_verdict,
+            proposed_tool.get("name") if isinstance(proposed_tool, dict) else None,
+        ),
     }
