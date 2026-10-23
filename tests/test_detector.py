@@ -56,6 +56,12 @@ class TestManyDestinationPorts(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "timestamp must be a finite number"):
                     detect_many_destination_ports([event(timestamp, "192.168.1.50", 80)])
 
+    def test_rejects_boolean_timestamp(self):
+        for timestamp in (True, False):
+            with self.subTest(timestamp=timestamp):
+                with self.assertRaisesRegex(ValueError, "timestamp must be a finite number"):
+                    detect_many_destination_ports([event(timestamp, "192.168.1.50", 80)])
+
     def test_rejects_empty_source(self):
         with self.assertRaisesRegex(ValueError, "src_ip must be a non-empty string"):
             detect_many_destination_ports([event(1, "  ", 80)])
