@@ -55,6 +55,10 @@ def main(argv=None):
         default="text",
         help="Output format: readable text or machine-readable JSON (default: text)",
     )
+    parser.add_argument(
+        "--output",
+        help="Optional path to save the report instead of printing it to the terminal",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -80,23 +84,31 @@ def main(argv=None):
             },
             "alerts": alerts,
         }
-        print(json.dumps(report, indent=2, sort_keys=True))
-        return 0
+        output_text = json.dumps(report, indent=2, sort_keys=True)
+    else:
+        lines = [f"SENTINEL analyzed {len(events)} event(s)."]
+        if not alerts:
+            lines.append("No anomalies detected.")
+        else:
+            lines.append(f"Detected {len(alerts)} alert(s):")
+            for number, alert in enumerate(alerts, start=1):
+                lines.append(
+                    f"[{number}] {alert['severity']} | {alert['rule']} | "
+                    f"source={alert['source']} | "
+                    f"distinct_ports={alert['unique_destination_ports']} | "
+                    f"window={alert['window_seconds']}s"
+                )
+                lines.append(f"    {alert['reason']}")
+        output_text = "\n".join(lines)
 
-    print(f"SENTINEL analyzed {len(events)} event(s).")
-    if not alerts:
-        print("No anomalies detected.")
-        return 0
-
-    print(f"Detected {len(alerts)} alert(s):")
-    for number, alert in enumerate(alerts, start=1):
-        print(
-            f"[{number}] {alert['severity']} | {alert['rule']} | "
-            f"source={alert['source']} | "
-            f"distinct_ports={alert['unique_destination_ports']} | "
-            f"window={alert['window_seconds']}s"
-        )
-        print(f"    {alert['reason']}")
+    if args.output:
+        try:
+            Path(args.output).write_text(output_text + "\n", encoding="utf-8")
+        except OSError as exc:
+            parser.error(f"Could not write report to {args.output}: {exc}")
+        print(f"Report saved to {args.output}")
+    else:
+        print(output_text)
     return 0
 
 
