@@ -119,6 +119,8 @@ class TestToolPolicyEngine(unittest.TestCase):
             ("GRANT ALL PRIVILEGES ON *.* TO 'attacker'@'%';", "MUTATING_SQL", "CRITICAL"),
             ("REVOKE ALL PRIVILEGES ON *.* FROM 'admin';", "MUTATING_SQL", "CRITICAL"),
             ("EXEC xp_cmdshell 'dir';", "MUTATING_SQL", "CRITICAL"),
+            ("SELECT * FROM events INTO OUTFILE '/tmp/events.csv';", "MUTATING_SQL", "CRITICAL"),
+            ("SELECT secret FROM users INTO DUMPFILE '/tmp/secret.bin';", "MUTATING_SQL", "CRITICAL"),
             ("SELECT * FROM events; UPDATE users SET role = 'admin';", "MUTATING_SQL", "CRITICAL"),
             ("SELECT * FROM events; SELECT * FROM users;", "SQL_INJECTION", "HIGH"),
             ("/* comment */ UPDATE users SET active = 1;", "MUTATING_SQL", "CRITICAL"),
