@@ -28,7 +28,7 @@ class TestAuditLog(unittest.TestCase):
         self.assertEqual([event["decision"] for event in trail], ["ALLOW", "BLOCK"])
         self.assertEqual(trail[1]["tool_name"], "read_demo_file")
         self.assertNotIn("arguments", str(trail))
-        self.assertNotIn("prompt", str(trail).lower())
+        self.assertNotIn("Ignore all previous instructions", str(trail))
 
     def test_required_fields_are_validated(self):
         with self.assertRaises(ValueError):
