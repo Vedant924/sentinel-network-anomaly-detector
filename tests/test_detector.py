@@ -89,5 +89,28 @@ class TestManyDestinationPorts(unittest.TestCase):
         self.assertEqual(len(alerts), 1)
         self.assertEqual(alerts[0]["unique_destination_ports"], 11)
 
+
+    def test_event_exactly_at_window_boundary_is_included(self):
+        events = [event(0, "192.168.1.70", 80)]
+        events.extend(
+            event(t, "192.168.1.70", port)
+            for t, port in zip(range(1, 11), range(81, 91))
+        )
+        alerts = detect_many_destination_ports(events, window_seconds=10, threshold=10)
+        self.assertEqual(len(alerts), 1)
+        self.assertEqual(alerts[0]["unique_destination_ports"], 11)
+
+    def test_alert_can_trigger_again_after_anomaly_clears(self):
+        events = [
+            event(t, "192.168.1.80", port)
+            for t, port in enumerate(range(1, 12))
+        ]
+        events.extend(
+            event(t, "192.168.1.80", port)
+            for t, port in zip(range(20, 31), range(20, 31))
+        )
+        alerts = detect_many_destination_ports(events, window_seconds=10, threshold=10)
+        self.assertEqual(len(alerts), 2)
+
 if __name__ == "__main__":
     unittest.main()
