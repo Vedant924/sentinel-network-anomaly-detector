@@ -264,6 +264,9 @@ def evaluate_tool_call(
         raise ValueError("tool_name must be a non-empty string")
     if not isinstance(arguments, dict):
         raise ValueError("arguments must be a dictionary")
+    # bool is a subclass of int in Python, so explicitly reject it.
+    if isinstance(max_depth, bool) or not isinstance(max_depth, int) or max_depth < 1:
+        raise ValueError("max_depth must be a positive integer")
 
     clean_tool_name = tool_name.strip()
 
