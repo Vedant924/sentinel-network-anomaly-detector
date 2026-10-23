@@ -102,7 +102,7 @@ SQL_ATTACK_PATTERNS: List[Tuple[str, str, str, re.Pattern]] = [
             r"GRANT\s+[a-zA-Z0-9_,\s]+\s+TO\b|"
             r"REVOKE\s+[a-zA-Z0-9_,\s]+\s+FROM\b|"
             r"EXEC(?:UTE)?\s+[a-zA-Z0-9_@]+|"
-            r"REPLACE\s+INTO\s+[a-zA-Z0-9_`\"\[\]]+|INTO\s+(?:OUTFILE|DUMPFILE)\b)\b",
+            r"REPLACE\s+INTO\s+[a-zA-Z0-9_`\"\[\]]+|INTO\s+(?:OUTFILE|DUMPFILE)\b|FOR\s+(?:NO\s+KEY\s+)?UPDATE\b|FOR\s+SHARE\b)\b",
             re.IGNORECASE,
         ),
     ),
