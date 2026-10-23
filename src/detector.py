@@ -23,6 +23,9 @@ def detect_many_destination_ports(events, window_seconds=10, threshold=10):
         if not isinstance(event, dict):
             raise ValueError("Each event must be an object with timestamp, src_ip, and dst_port")
 
+        if isinstance(event.get("timestamp"), bool):
+            raise ValueError("timestamp must be a finite number")
+
         try:
             timestamp = float(event["timestamp"])
             source_value = event["src_ip"]
