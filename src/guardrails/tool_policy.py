@@ -111,9 +111,11 @@ SQL_ATTACK_PATTERNS: List[Tuple[str, str, str, re.Pattern]] = [
         "HIGH",
         "SQL injection sequence or stacked comment attack",
         re.compile(
-            r"(?:;\s*--|;\s*DROP|;\s*(?:SELECT|UPDATE|INSERT|DELETE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE|EXEC(?:UTE)?|REPLACE)\b|"
+            r"(?:;\s*--|;\s*DROP|;\s*(?:SELECT|UPDATE|INSERT|DELETE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE|EXEC(?:UTE)?|REPLACE|WITH|EXPLAIN)\b|"
+            r";\s*(?:(?:--[^\r\n]*(?:\r?\n|$))|(?:/\*.*?\*/\s*))+"
+            r"(?:SELECT|UPDATE|INSERT|DELETE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE|EXEC(?:UTE)?|REPLACE|WITH|EXPLAIN)\b|"
             r"'\s*OR\s+'1'\s*=\s*'1|UNION\s+ALL\s+SELECT|UNION\s+SELECT)",
-            re.IGNORECASE,
+            re.IGNORECASE | re.DOTALL,
         ),
     ),
 ]
