@@ -77,5 +77,17 @@ class TestManyDestinationPorts(unittest.TestCase):
             detect_many_destination_ports([], window_seconds=float("nan"))
 
 
+
+    def test_alerts_only_after_exceeding_threshold(self):
+        events = [event(t, "192.168.1.60", port) for t, port in enumerate(range(1, 11))]
+        self.assertEqual(
+            detect_many_destination_ports(events, window_seconds=10, threshold=10),
+            [],
+        )
+        events.append(event(10, "192.168.1.60", 11))
+        alerts = detect_many_destination_ports(events, window_seconds=10, threshold=10)
+        self.assertEqual(len(alerts), 1)
+        self.assertEqual(alerts[0]["unique_destination_ports"], 11)
+
 if __name__ == "__main__":
     unittest.main()
