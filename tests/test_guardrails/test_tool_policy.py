@@ -126,6 +126,10 @@ class TestToolPolicyEngine(unittest.TestCase):
             ("SELECT * FROM accounts FOR SHARE;", "MUTATING_SQL", "CRITICAL"),
             ("SELECT * FROM events; UPDATE users SET role = 'admin';", "MUTATING_SQL", "CRITICAL"),
             ("SELECT * FROM events; SELECT * FROM users;", "SQL_INJECTION", "HIGH"),
+            ("SELECT * FROM events; /* note */ SELECT * FROM users;", "SQL_INJECTION", "HIGH"),
+            ("SELECT * FROM events; /* multi-line\\ncomment */ SELECT * FROM users;", "SQL_INJECTION", "HIGH"),
+            ("SELECT * FROM events; -- comment\\nWITH recent AS (SELECT 1) SELECT * FROM recent;", "SQL_INJECTION", "HIGH"),
+            ("SELECT * FROM events; /* note */ UPDATE users SET role = 'admin';", "MUTATING_SQL", "CRITICAL"),
             ("/* comment */ UPDATE users SET active = 1;", "MUTATING_SQL", "CRITICAL"),
         ]
         for sql, expected_rule, expected_risk in dangerous_sqls:
