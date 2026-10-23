@@ -6,7 +6,8 @@ This plan splits the remaining MVP work into independent, reviewable tasks. Repl
 
 | Workstream | Owner | Deliverable | Acceptance check |
 |---|---|---|---|
-| Detection logic | Project lead | Maintain `src/detector.py` and edge-case tests | Unit tests pass; rule and threshold are explained |
+| Network detection | Project lead | Maintain `src/detector.py` and edge-case tests | Unit tests pass; rule and threshold are explained |
+| AI security guardrails | Project lead / assigned contributor | Review `src/guardrails/injection_guard.py`, `tool_policy.py`, and `pipeline.py`; add focused regression tests | Prompt-injection and tool-policy cases are tested; deterministic blocks cannot be overridden by model output |
 | Event input and demo | Contributor 2 | Review `src/run_detector.py`, sample JSONL, and CLI behaviour | A clean checkout can run the sample and show an alert |
 | Test quality and documentation | Contributor 3 | Add test cases, improve README, and verify setup steps | Tests run from repository root; docs match actual behaviour |
 
@@ -24,7 +25,7 @@ Fill this in honestly as work is completed. Do not claim a task or contribution 
 
 | Contributor GitHub username | Task completed | Evidence (PR/commit) |
 |---|---|---|
-| Vedant924 | Project coordination and integration | Add commit or PR link |
+| Vedant924 | Project coordination, integration, and AI guardrails | Add commit or PR link |
 | Contributor 2 | To be assigned | Add after completion |
 | Contributor 3 | To be assigned | Add after completion |
 
