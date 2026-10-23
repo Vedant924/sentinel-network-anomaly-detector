@@ -45,7 +45,7 @@ SHELL_ATTACK_PATTERNS: List[Tuple[str, str, str, re.Pattern]] = [
         "CRITICAL",
         "Remote script download piped into shell or encoded powershell",
         re.compile(
-            r"(?:curl|wget)\s+[^\n|;]+?\|\s*(?:bash|sh|zsh|dash|powershell|pwsh)\b|"
+            r"(?:curl|wget)\s+[^\n|;]+?\|\s*(?:bash|sh|zsh|dash|powershell|pwsh|python(?:[0-9.]*)?|perl|ruby|node)\b|"
             r"\bpowershell(?:\.exe)?\s+(?:-[a-z]+\s+)*-(?:enc|encodedcommand)\b",
             re.IGNORECASE,
         ),
