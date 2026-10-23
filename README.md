@@ -62,6 +62,28 @@ The guardrail pipeline in `src/guardrails/` includes:
 - **Optional model-assisted analysis:** the Nebius client can request advisory analysis from a configured model. Without credentials, it uses an offline mock response.
 - **Fail-safe handling:** detected prompt injection short-circuits the pipeline. Model output is advisory and cannot override a deterministic block.
 - **Structured verdicts:** returns status fields and explanations that can be inspected by tests or an application.
+- **Decision audit trail:** each pipeline result includes timestamped prompt/tool decisions, rule IDs, risk levels, and reasons. Raw prompts and tool arguments are intentionally omitted.
+- **Human approval gate:** a proposed tool call marked with `"requires_approval": true` returns `APPROVAL_REQUIRED` and is not simulated unless a trusted caller separately passes `human_approved=True`. Model output cannot grant this approval.
+- **Security evaluation tests:** a repeatable test corpus checks known prompt-injection examples and benign prompts, including a basic false-positive check.
+
+Example approval-gated call:
+
+```python
+from src.guardrails.pipeline import run_guardrail_pipeline
+
+result = run_guardrail_pipeline(
+    "Search the project documentation.",
+    {
+        "name": "search_docs",
+        "arguments": {"query": "architecture"},
+        "requires_approval": True,
+    },
+)
+print(result["overall_status"])  # APPROVAL_REQUIRED
+print(result["audit_trail"])
+```
+
+A trusted application can call the pipeline with `human_approved=True` after its approval step. Do not let model output or untrusted prompt content set that argument.
 
 **Important boundary:** tool calls in this prototype are simulated and policy-checked; this pipeline is not a general-purpose sandbox or a guarantee that all malicious inputs will be detected. Pattern-based checks can miss novel attacks and can sometimes flag benign text.
 
@@ -220,6 +242,8 @@ GitHub Actions is configured to run the test suite on pushes and pull requests. 
 - Network input is synthetic JSONL; live packet capture is not implemented.
 - The detector currently implements one network anomaly rule.
 - Prompt-injection and tool-policy checks are deterministic heuristics, not a complete defense against every attack.
+- The evaluation corpus is small and illustrative; it does not establish a real-world detection rate.
+- Approval is a caller-controlled integration hook, not a built-in identity system or approval UI.
 - Live model analysis depends on external API access and valid credentials; offline mock results are simulated.
 - There is no graphical dashboard or automatic connection between network alerts and the AI guardrail pipeline.
 - The current demo test is a smoke test; broader assertions about demo output and error cases would improve coverage.
