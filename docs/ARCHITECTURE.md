@@ -49,3 +49,14 @@ Show event rates, protocol breakdown, alert timeline, evidence behind each rule,
 - CLI versus minimal web interface.
 - Current hackathon rules, model/API configuration, and submission requirements.
 - Detection thresholds, evaluated with test fixtures rather than guessed performance claims.
+
+
+## AI guardrail enforcement and audit
+
+The guardrail pipeline runs deterministic prompt checks before optional advisory model analysis. A detected injection short-circuits model and tool stages. Proposed tool calls are checked against an allowlist and argument policies; tool effects remain simulated in this prototype.
+
+A caller may mark a proposed tool call with `requires_approval: true`. The pipeline returns `APPROVAL_REQUIRED` without simulating the call unless a trusted application separately supplies `human_approved=True`. The model response is never treated as approval. This flag is an integration seam, not a complete identity, authorization, or approval UI.
+
+Every returned pipeline result includes an `audit_trail` of prompt and tool policy decisions. Audit events intentionally omit raw prompt text and tool arguments to reduce accidental sensitive-data capture. They contain a UTC timestamp, stage, decision, risk level, rule ID, tool name where relevant, and reason.
+
+The guardrail evaluation suite in `tests/test_guardrails/test_security_evaluation.py` exercises a small fixed set of known attack and benign prompts. It is regression coverage, not proof of broad security effectiveness. New cases should be added whenever a bypass or false positive is found.
