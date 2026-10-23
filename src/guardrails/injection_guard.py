@@ -76,7 +76,7 @@ INJECTION_RULES: List[Tuple[str, str, str, re.Pattern]] = [
             r"<\|start_header_id\|>|<\|end_header_id\|>|<\|eot_id\|>|"
             r"<start_of_turn>\s*(?:model|user)?|<end_of_turn>|"
             r"\[INST\]\s*<<SYS>>|<<SYS>>|\[/INST\])|"
-            r"(?:(?:\r?\n|^)###\s*(?:System|Admin|Root)\s*:)",
+            r"(?:(?:\r?\n|^)###\s*(?:System|Developer|Admin|Root)\s*:)",
             re.IGNORECASE,
         ),
     ),
