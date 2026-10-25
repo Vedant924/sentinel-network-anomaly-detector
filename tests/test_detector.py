@@ -1,6 +1,11 @@
 import unittest
 
-from src.detector import detect_many_destination_ports, validate_ip
+from src.detector import (
+    detect_anomalies,
+    detect_high_event_rate,
+    detect_many_destination_ports,
+    validate_ip,
+)
 
 
 def event(timestamp, source, port):
@@ -167,6 +172,33 @@ class TestManyDestinationPorts(unittest.TestCase):
             validate_ip(None)
         with self.assertRaisesRegex(ValueError, "src_ip must be a valid IPv4 or IPv6 address"):
             validate_ip("invalid-ip")
+
+    def test_detect_high_event_rate_triggers_alert(self):
+        # 15 events in a 10s window with max_events=10 triggers 1 alert
+        events = [event(t, "192.168.1.99", 80) for t in range(15)]
+        alerts = detect_high_event_rate(events, window_seconds=10, max_events=10)
+        self.assertEqual(len(alerts), 1)
+        self.assertEqual(alerts[0]["rule"], "HIGH_EVENT_RATE")
+        self.assertEqual(alerts[0]["source"], "192.168.1.99")
+        self.assertEqual(alerts[0]["threshold"], 10)
+        self.assertGreater(alerts[0]["observed_count"], 10)
+
+    def test_detect_high_event_rate_below_threshold(self):
+        events = [event(t, "192.168.1.99", 80) for t in range(5)]
+        alerts = detect_high_event_rate(events, window_seconds=10, max_events=10)
+        self.assertEqual(alerts, [])
+
+    def test_detect_anomalies_combines_rules(self):
+        # Source 1 triggers many destination ports
+        events = [event(t, "192.168.1.10", port) for t, port in enumerate(range(1, 13))]
+        # Source 2 triggers high event rate on a single port (25 events within 5 seconds)
+        events.extend([event(t * 0.2, "192.168.1.20", 443) for t in range(25)])
+
+        alerts = detect_anomalies(events, window_seconds=10, port_threshold=10, rate_threshold=20)
+        rules = [a["rule"] for a in alerts]
+        self.assertIn("MANY_DESTINATION_PORTS", rules)
+        self.assertIn("HIGH_EVENT_RATE", rules)
+        self.assertEqual(len(alerts), 2)
 
 if __name__ == "__main__":
     unittest.main()

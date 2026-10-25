@@ -1,5 +1,7 @@
 """Deterministic prompt-injection and jailbreak detector for AI Guardrail."""
 
+import base64
+import binascii
 import re
 import unicodedata
 from typing import Any, Dict, List, Optional, Tuple
@@ -83,13 +85,48 @@ INJECTION_RULES: List[Tuple[str, str, str, re.Pattern]] = [
 ]
 
 
+def _extract_obfuscated_payloads(text: str) -> List[Tuple[str, str]]:
+    """Extract and decode potential Base64 and Hex encoded payloads from text.
+
+    Returns a list of tuples: (decoded_text, encoding_type)
+    """
+    decoded_payloads: List[Tuple[str, str]] = []
+
+    # 1. Base64 candidates: tokens with standard b64 characters, length >= 16
+    b64_pattern = re.compile(r"\b[A-Za-z0-9+/]{16,}={0,2}\b")
+    for match in b64_pattern.finditer(text):
+        token = match.group(0)
+        try:
+            padded = token + "=" * (-len(token) % 4)
+            raw_bytes = base64.b64decode(padded, validate=True)
+            decoded = raw_bytes.decode("utf-8", errors="strict").strip()
+            if len(decoded) >= 8 and any(ch.isalpha() for ch in decoded):
+                decoded_payloads.append((decoded, "Base64"))
+        except (binascii.Error, UnicodeDecodeError, ValueError):
+            pass
+
+    # 2. Hex candidates: tokens of hex characters, length >= 16, even length
+    hex_pattern = re.compile(r"\b(?:0x)?[0-9a-fA-F]{16,}\b")
+    for match in hex_pattern.finditer(text):
+        token = match.group(0)
+        clean_hex = token[2:] if token.lower().startswith("0x") else token
+        if len(clean_hex) % 2 == 0:
+            try:
+                raw_bytes = bytes.fromhex(clean_hex)
+                decoded = raw_bytes.decode("utf-8", errors="strict").strip()
+                if len(decoded) >= 8 and any(ch.isalpha() for ch in decoded):
+                    decoded_payloads.append((decoded, "Hex"))
+            except (ValueError, UnicodeDecodeError):
+                pass
+
+    return decoded_payloads
+
+
 def detect_prompt_injection(prompt: str) -> Dict[str, Any]:
     """Inspect a user prompt and return a structured verdict on prompt-injection risks.
 
-    Applies Unicode NFKC normalization and zero-width/invisible character filtering
-    to mitigate obfuscation attempts (e.g. zero-width spaces or fullwidth Latin forms).
-    Note: NFKC does not bridge cross-script homoglyphs (e.g. Cyrillic lookalikes), which
-    remain an explicit boundary for regex heuristics without a dedicated script map.
+    Applies Unicode NFKC normalization, zero-width/invisible character filtering,
+    and Base64/Hex obfuscation unpacking to mitigate evasion attempts.
 
     Args:
         prompt: The raw user prompt string to inspect.
@@ -138,6 +175,27 @@ def detect_prompt_injection(prompt: str) -> Dict[str, Any]:
                     "risk_level": risk_level,
                     "rule_triggered": rule_id,
                     "reason": f"Blocked by guardrail rule '{rule_id}': {description}.",
+                    "matched_patterns": matched_snippets,
+                }
+
+    # Inspect decoded payloads (Base64 / Hex obfuscation)
+    decoded_payloads = _extract_obfuscated_payloads(prompt)
+    for decoded_text, enc_type in decoded_payloads:
+        norm_decoded = unicodedata.normalize("NFKC", decoded_text)
+        for rule_id, risk_level, description, pattern in INJECTION_RULES:
+            matches = pattern.findall(norm_decoded)
+            if matches:
+                matched_snippets = [
+                    match if isinstance(match, str) else match[0] for match in matches
+                ]
+                return {
+                    "allowed": False,
+                    "risk_level": risk_level,
+                    "rule_triggered": rule_id,
+                    "reason": (
+                        f"Blocked by guardrail rule '{rule_id}' "
+                        f"(detected inside {enc_type}-encoded payload): {description}."
+                    ),
                     "matched_patterns": matched_snippets,
                 }
 

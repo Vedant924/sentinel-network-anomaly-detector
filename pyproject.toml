@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sentinel-security"
+version = "0.2.0"
+description = "Network anomaly detection and deterministic AI security guardrails prototype"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Vedant924" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Security",
+    "Operating System :: OS Independent",
+]
+
+[project.scripts]
+sentinel-detector = "src.run_detector:main"
+sentinel-demo = "src.demo:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]

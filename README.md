@@ -31,8 +31,11 @@ Security tools should do more than produce an alert: their decisions should be u
 ### 1. Network anomaly detection
 
 - Loads synthetic events from a JSON Lines (JSONL) file.
-- Groups events by source and checks distinct destination ports within a configurable time window.
-- Produces readable alerts with the rule name, source, port count, threshold, time window, severity, and reason.
+- Validates IPv4 and IPv6 addresses with canonical representation matching.
+- **Explainable detection rules:**
+  - `MANY_DESTINATION_PORTS`: Identifies horizontal port scanning where a source contacts more distinct ports than the threshold within the time window.
+  - `HIGH_EVENT_RATE`: Identifies connection floods, automated probes, or DoS-like event bursts from a single source exceeding the event threshold within the window.
+- Supports `--rule {ports, rate, all}` to run specific or all detection rules.
 - Supports `--format json` for machine-readable reports containing event counts, unique source counts, severity summaries, and full alert details.
 - Supports `--output PATH` to save text or JSON reports to a file for sharing or later review.
 - Validates event fields and reports malformed input through the command-line interface.
@@ -57,7 +60,7 @@ The current rule detects a source contacting **more than** the configured thresh
 
 The guardrail pipeline in `src/guardrails/` includes:
 
-- **Prompt-injection checks:** deterministic pattern-based checks for instruction overrides, attempts to reveal hidden instructions, jailbreak-style requests, and injected message delimiters. Unicode normalization and invisible-character filtering help handle some obfuscation.
+- **Prompt-injection checks:** deterministic pattern-based checks for instruction overrides, attempts to reveal hidden instructions, jailbreak-style requests, and injected message delimiters. Unicode NFKC normalization, zero-width/invisible character filtering, and Base64/Hex payload unpacking prevent obfuscation bypasses.
 - **Tool-call policy checks:** validates proposed tool names and arguments, inspects nested arguments, checks for dangerous command/SQL patterns, and applies path restrictions for the demo file-reading tool.
 - **Optional model-assisted analysis:** the Nebius client can request advisory analysis from a configured model. Without credentials, it uses an offline mock response.
 - **Fail-safe handling:** detected prompt injection short-circuits the pipeline. Model output is advisory and cannot override a deterministic block.
@@ -66,30 +69,20 @@ The guardrail pipeline in `src/guardrails/` includes:
 - **Human approval gate:** a proposed tool call marked with `"requires_approval": true` returns `APPROVAL_REQUIRED` and is not simulated unless a trusted caller separately passes `human_approved=True`. Model output cannot grant this approval.
 - **Security evaluation tests:** a repeatable test corpus checks known prompt-injection examples and benign prompts, including a basic false-positive check.
 
-Example approval-gated call:
+### 3. AI-Assisted Incident Triage Bridge
 
-```python
-from src.guardrails.pipeline import run_guardrail_pipeline
+Located in `src/incident_triage.py`, this bridge connects the network detector to the AI guardrail pipeline:
+- Translates structured network alerts into sanitized security analysis prompts.
+- Proposes read-only documentation lookup tools (`search_docs`) to fetch incident runbooks.
+- Dispatches the prompt through `run_guardrail_pipeline` to produce an advisory incident summary with verified deterministic guardrails.
+- Prevents adversarial evasion: if malicious prompt injection text is injected into event telemetry fields, the guardrail immediately blocks processing before any model invocation.
 
-result = run_guardrail_pipeline(
-    "Search the project documentation.",
-    {
-        "name": "search_docs",
-        "arguments": {"query": "architecture"},
-        "requires_approval": True,
-    },
-)
-print(result["overall_status"])  # APPROVAL_REQUIRED
-print(result["audit_trail"])
-```
+### 4. Combined demonstration
 
-A trusted application can call the pipeline with `human_approved=True` after its approval step. Do not let model output or untrusted prompt content set that argument.
-
-**Important boundary:** tool calls in this prototype are simulated and policy-checked; this pipeline is not a general-purpose sandbox or a guarantee that all malicious inputs will be detected. Pattern-based checks can miss novel attacks and can sometimes flag benign text.
-
-### 3. Combined demonstration
-
-Run `src/demo.py` to demonstrate both components in sequence: the sample network anomaly detector, followed by a prompt-injection example through the guardrail pipeline. The demo uses the project's sample data and the configured offline mock behavior when live model credentials are unavailable.
+Run `src/demo.py` to demonstrate the three core capabilities in sequence:
+1. Explainable network anomaly detection (`MANY_DESTINATION_PORTS` and `HIGH_EVENT_RATE`).
+2. AI-assisted incident triage bridge connecting an alert to the guardrail pipeline for automated advisory analysis.
+3. Adversarial prompt-injection defense showcasing both plaintext and Base64-obfuscated attack containment.
 
 ## Architecture
 

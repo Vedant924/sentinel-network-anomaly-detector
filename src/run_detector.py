@@ -4,7 +4,11 @@ import argparse
 import json
 from pathlib import Path
 
-from src.detector import detect_many_destination_ports
+from src.detector import (
+    detect_anomalies,
+    detect_high_event_rate,
+    detect_many_destination_ports,
+)
 
 
 def load_events(path):
@@ -50,6 +54,12 @@ def main(argv=None):
         help="Maximum allowed distinct destination ports before alerting (default: 10)",
     )
     parser.add_argument(
+        "--rule",
+        choices=("ports", "rate", "all"),
+        default="ports",
+        help="Detection rule to apply: 'ports' (distinct ports), 'rate' (event frequency), or 'all' (default: ports)",
+    )
+    parser.add_argument(
         "--format",
         choices=("text", "json"),
         default="text",
@@ -63,11 +73,25 @@ def main(argv=None):
 
     try:
         events = load_events(args.input)
-        alerts = detect_many_destination_ports(
-            events,
-            window_seconds=args.window,
-            threshold=args.threshold,
-        )
+        if args.rule == "rate":
+            alerts = detect_high_event_rate(
+                events,
+                window_seconds=args.window,
+                max_events=args.threshold,
+            )
+        elif args.rule == "all":
+            alerts = detect_anomalies(
+                events,
+                window_seconds=args.window,
+                port_threshold=args.threshold,
+                rate_threshold=args.threshold,
+            )
+        else:
+            alerts = detect_many_destination_ports(
+                events,
+                window_seconds=args.window,
+                threshold=args.threshold,
+            )
     except (OSError, ValueError) as exc:
         parser.error(str(exc))
 
