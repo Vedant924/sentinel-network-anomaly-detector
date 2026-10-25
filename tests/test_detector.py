@@ -1,6 +1,6 @@
 import unittest
 
-from src.detector import detect_many_destination_ports
+from src.detector import detect_many_destination_ports, validate_ip
 
 
 def event(timestamp, source, port):
@@ -117,6 +117,56 @@ class TestManyDestinationPorts(unittest.TestCase):
         )
         alerts = detect_many_destination_ports(events, window_seconds=10, threshold=10)
         self.assertEqual(len(alerts), 2)
+
+    def test_rejects_invalid_src_ip_address_format(self):
+        invalid_ips = ["not_an_ip", "999.999.999.999", "192.168.1", "192.168.1.1.1", "fe80:::1"]
+        for bad_ip in invalid_ips:
+            with self.subTest(bad_ip=bad_ip):
+                with self.assertRaisesRegex(ValueError, "src_ip must be a valid IPv4 or IPv6 address"):
+                    detect_many_destination_ports([event(1, bad_ip, 80)])
+
+    def test_rejects_non_string_src_ip(self):
+        with self.assertRaisesRegex(ValueError, "src_ip must be a non-empty string"):
+            detect_many_destination_ports([{"timestamp": 1, "src_ip": 192168, "dst_port": 80}])
+
+    def test_supports_ipv6_addresses(self):
+        events = [event(t, "2001:db8::1", port) for t, port in enumerate(range(1, 13))]
+        alerts = detect_many_destination_ports(events, window_seconds=10, threshold=10)
+        self.assertEqual(len(alerts), 1)
+        self.assertEqual(alerts[0]["source"], "2001:db8::1")
+        self.assertEqual(alerts[0]["unique_destination_ports"], 11)
+
+    def test_normalizes_ipv6_representations(self):
+        # Two representations of the same IPv6 address should group under the canonical form
+        events = [
+            event(1, "2001:0db8:0000:0000:0000:0000:0000:0001", 80),
+            event(2, "2001:db8::1", 443),
+        ]
+        alerts = detect_many_destination_ports(events, window_seconds=10, threshold=1)
+        self.assertEqual(len(alerts), 1)
+        self.assertEqual(alerts[0]["source"], "2001:db8::1")
+        self.assertEqual(alerts[0]["unique_destination_ports"], 2)
+
+    def test_validates_optional_dst_ip_when_provided(self):
+        # Valid dst_ip succeeds
+        valid_event = {"timestamp": 1, "src_ip": "192.168.1.10", "dst_ip": "10.0.0.1", "dst_port": 80}
+        self.assertEqual(detect_many_destination_ports([valid_event]), [])
+
+        # Invalid dst_ip raises ValueError
+        invalid_event = {"timestamp": 1, "src_ip": "192.168.1.10", "dst_ip": "bad_dst_ip", "dst_port": 80}
+        with self.assertRaisesRegex(ValueError, "dst_ip must be a valid IPv4 or IPv6 address"):
+            detect_many_destination_ports([invalid_event])
+
+    def test_validate_ip_helper(self):
+        self.assertEqual(validate_ip("192.168.1.1"), "192.168.1.1")
+        self.assertEqual(validate_ip("  10.0.0.1  "), "10.0.0.1")
+        self.assertEqual(validate_ip("::1"), "::1")
+        with self.assertRaisesRegex(ValueError, "src_ip must be a non-empty string"):
+            validate_ip("   ")
+        with self.assertRaisesRegex(ValueError, "src_ip must be a non-empty string"):
+            validate_ip(None)
+        with self.assertRaisesRegex(ValueError, "src_ip must be a valid IPv4 or IPv6 address"):
+            validate_ip("invalid-ip")
 
 if __name__ == "__main__":
     unittest.main()

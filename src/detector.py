@@ -1,7 +1,26 @@
 """Small, explainable rules for detecting suspicious network events."""
 
+import ipaddress
 import math
 from collections import defaultdict
+
+
+def validate_ip(ip_value, field_name="src_ip"):
+    """Validate that ip_value is a valid IPv4 or IPv6 address string.
+
+    Returns the canonical string representation of the IP address.
+
+    Raises:
+        ValueError: If ip_value is not a non-empty string or not a valid IP address.
+    """
+    if not isinstance(ip_value, str) or not ip_value.strip():
+        raise ValueError(f"{field_name} must be a non-empty string")
+    try:
+        return str(ipaddress.ip_address(ip_value.strip()))
+    except ValueError as exc:
+        raise ValueError(
+            f"{field_name} must be a valid IPv4 or IPv6 address, got {ip_value!r}"
+        ) from exc
 
 
 def detect_many_destination_ports(events, window_seconds=10, threshold=10):
@@ -28,7 +47,7 @@ def detect_many_destination_ports(events, window_seconds=10, threshold=10):
 
         try:
             timestamp = float(event["timestamp"])
-            source_value = event["src_ip"]
+            source_raw = event["src_ip"]
             port_value = event["dst_port"]
         except (KeyError, TypeError, ValueError) as exc:
             raise ValueError(
@@ -37,8 +56,11 @@ def detect_many_destination_ports(events, window_seconds=10, threshold=10):
 
         if not math.isfinite(timestamp):
             raise ValueError("timestamp must be a finite number")
-        if not isinstance(source_value, str) or not source_value.strip():
-            raise ValueError("src_ip must be a non-empty string")
+
+        source_value = validate_ip(source_raw, field_name="src_ip")
+        if "dst_ip" in event and event["dst_ip"] is not None:
+            validate_ip(event["dst_ip"], field_name="dst_ip")
+
         if isinstance(port_value, bool):
             raise ValueError("dst_port must be an integer between 1 and 65535")
         try:

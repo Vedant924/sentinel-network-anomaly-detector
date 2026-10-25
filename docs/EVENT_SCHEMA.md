@@ -15,9 +15,9 @@ Format: JSON Lines (JSONL), one JSON object per line.
 | Field | Required | Current expectation |
 |---|---|---|
 | `timestamp` | Yes | Numeric Unix time in seconds; values for one source are ordered and compared within a sliding time window |
-| `src_ip` | Yes | Non-empty source address or source identifier string |
+| `src_ip` | Yes | Valid IPv4 or IPv6 address string (canonicalized during detection) |
 | `dst_port` | Yes | Integer destination port from 1 through 65535 |
-| `dst_ip` | No for this rule | Destination address string when available |
+| `dst_ip` | No for this rule | Valid IPv4 or IPv6 address string when provided |
 
 The current rule groups events by `src_ip` and counts distinct `dst_port` values in a configurable time window. It emits a `MANY_DESTINATION_PORTS` alert when the count is **greater than** the configured threshold.
 
