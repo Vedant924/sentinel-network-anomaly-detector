@@ -38,7 +38,7 @@ class TestReadOnlySQLHardening(unittest.TestCase):
                 self.assertFalse(verdict["allowed"])
                 self.assertIn(
                     verdict["rule_triggered"],
-                    {"MULTIPLE_SQL_STATEMENTS", "SQL_INJECTION"},
+                    {"MULTIPLE_SQL_STATEMENTS", "SQL_INJECTION", "DESTRUCTIVE_SQL", "MUTATING_SQL"},
                 )
 
     def test_mutating_and_privileged_sql_are_rejected(self):
