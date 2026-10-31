@@ -312,13 +312,66 @@ def _validate_read_only_sql(sql: str) -> Optional[Dict[str, str]]:
 
     untrimmed = "".join(masked)
     normalized = untrimmed.strip()
+
+    # Classify dangerous operations before the generic multi-statement rule so
+    # callers retain useful DESTRUCTIVE_SQL / MUTATING_SQL verdicts.
+    destructive = re.search(
+        r"\b(?:DROP\s+(?:TABLE|DATABASE|SCHEMA|VIEW)|TRUNCATE\s+(?:TABLE\s+)?[A-Za-z0-9_]+|DELETE\s+FROM\s+[A-Za-z0-9_]+)\b",
+        normalized,
+        re.IGNORECASE,
+    )
+    if destructive:
+        return {
+            "allowed": False,
+            "risk_level": "CRITICAL",
+            "rule_triggered": "DESTRUCTIVE_SQL",
+            "reason": "Destructive SQL operation is forbidden in the read-only demo database.",
+        }
+
+    mutating = re.search(
+        r"\b(?:UPDATE\b|INSERT\b|ALTER\b|CREATE\b|REPLACE\b|GRANT\b|REVOKE\b|"
+        r"ATTACH\b|DETACH\b|PRAGMA\b|VACUUM\b|REINDEX\b|ANALYZE\b|"
+        r"CALL\b|EXEC(?:UTE)?\b|COPY\b|LOAD_EXTENSION\b|INTO\b|FOR\s+(?:NO\s+KEY\s+)?UPDATE\b|FOR\s+SHARE\b)",
+        normalized,
+        re.IGNORECASE,
+    )
+    if mutating:
+        return {
+            "allowed": False,
+            "risk_level": "CRITICAL",
+            "rule_triggered": "MUTATING_SQL",
+            "reason": f"Read-only SQL policy forbids the operation '{mutating.group(0)}'.",
+        }
+
+    if re.search(r";\s*--", sql):
+        return {
+            "allowed": False,
+            "risk_level": "HIGH",
+            "rule_triggered": "SQL_INJECTION",
+            "reason": "SQL comment immediately after a statement separator is blocked.",
+        }
+    if re.search(r"\bUNION\s+(?:ALL\s+)?SELECT\b", normalized, re.IGNORECASE):
+        return {
+            "allowed": False,
+            "risk_level": "HIGH",
+            "rule_triggered": "SQL_INJECTION",
+            "reason": "SQL UNION-based injection pattern detected.",
+        }
+    if re.search(r"""'\s*OR\s+'1'\s*=\s*'1""", sql, re.IGNORECASE):
+        return {
+            "allowed": False,
+            "risk_level": "HIGH",
+            "rule_triggered": "SQL_INJECTION",
+            "reason": "SQL tautology injection pattern detected.",
+        }
+
     if semicolons:
         trailing_index = len(untrimmed.rstrip()) - 1
         if len(semicolons) != 1 or semicolons[0] != trailing_index:
             return {
                 "allowed": False,
-                "risk_level": "CRITICAL",
-                "rule_triggered": "MULTIPLE_SQL_STATEMENTS",
+                "risk_level": "HIGH",
+                "rule_triggered": "SQL_INJECTION",
                 "reason": "Only one SQL statement is permitted per tool call.",
             }
         normalized = normalized[:-1].rstrip()
@@ -329,46 +382,6 @@ def _validate_read_only_sql(sql: str) -> Optional[Dict[str, str]]:
             "risk_level": "CRITICAL",
             "rule_triggered": "MUTATING_SQL",
             "reason": "Only read-only SELECT, WITH, or EXPLAIN statements are permitted.",
-        }
-
-    if re.search(r";\s*--", sql):
-        return {
-            "allowed": False,
-            "risk_level": "HIGH",
-            "rule_triggered": "SQL_INJECTION",
-            "reason": "SQL comment immediately after a statement separator is blocked.",
-        }
-
-    # Preserve the existing high-signal SQL injection checks while excluding
-    # quoted literals from keyword-based mutation checks.
-    if re.search(r"""'\s*OR\s+'1'\s*=\s*'1""", sql, re.IGNORECASE):
-        return {
-            "allowed": False,
-            "risk_level": "HIGH",
-            "rule_triggered": "SQL_INJECTION",
-            "reason": "SQL tautology injection pattern detected.",
-        }
-    if re.search(r"\bUNION\s+(?:ALL\s+)?SELECT\b", normalized, re.IGNORECASE):
-        return {
-            "allowed": False,
-            "risk_level": "HIGH",
-            "rule_triggered": "SQL_INJECTION",
-            "reason": "SQL UNION-based injection pattern detected.",
-        }
-
-    forbidden = re.compile(
-        r"\b(?:INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|REPLACE|"
-        r"GRANT|REVOKE|ATTACH|DETACH|PRAGMA|VACUUM|REINDEX|ANALYZE|"
-        r"CALL|EXEC(?:UTE)?|COPY|LOAD_EXTENSION|INTO)\b",
-        re.IGNORECASE,
-    )
-    match = forbidden.search(normalized)
-    if match:
-        return {
-            "allowed": False,
-            "risk_level": "CRITICAL",
-            "rule_triggered": "MUTATING_SQL",
-            "reason": f"Read-only SQL policy forbids the operation '{match.group(0)}'.",
         }
     return None
 
