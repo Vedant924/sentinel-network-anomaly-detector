@@ -2,6 +2,7 @@
 
 import os
 import re
+import stat
 from typing import Any, Dict, List, Optional, Tuple
 
 # Allowed tools registry with typed required arguments
@@ -251,6 +252,7 @@ def _validate_read_only_sql(sql: str) -> Optional[Dict[str, str]]:
     semicolons = []
     i = 0
     quote_end = None
+    comment_after_separator = False
     while i < len(sql):
         ch = sql[i]
         nxt = sql[i + 1] if i + 1 < len(sql) else ""
@@ -425,7 +427,7 @@ def open_sandboxed_file(relative_path: str, allowed_dir: str = "data"):
                 if current_fd != root_fd:
                     os.close(current_fd)
                 current_fd = next_fd
-            if not __import__("stat").S_ISREG(os.fstat(current_fd).st_mode):
+            if not stat.S_ISREG(os.fstat(current_fd).st_mode):
                 raise PermissionError("Only regular files may be opened.")
             result_fd = current_fd
             current_fd = -1
