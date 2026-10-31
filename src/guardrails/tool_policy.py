@@ -331,6 +331,23 @@ def _validate_read_only_sql(sql: str) -> Optional[Dict[str, str]]:
             "reason": "Only read-only SELECT, WITH, or EXPLAIN statements are permitted.",
         }
 
+    # Preserve the existing high-signal SQL injection checks while excluding
+    # quoted literals from keyword-based mutation checks.
+    if re.search(r"""'\\s*OR\\s+'1'\\s*=\\s*'1""", sql, re.IGNORECASE):
+        return {
+            "allowed": False,
+            "risk_level": "HIGH",
+            "rule_triggered": "SQL_INJECTION",
+            "reason": "SQL tautology injection pattern detected.",
+        }
+    if re.search(r"\\bUNION\\s+(?:ALL\\s+)?SELECT\\b", normalized, re.IGNORECASE):
+        return {
+            "allowed": False,
+            "risk_level": "HIGH",
+            "rule_triggered": "SQL_INJECTION",
+            "reason": "SQL UNION-based injection pattern detected.",
+        }
+
     forbidden = re.compile(
         r"\b(?:INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|REPLACE|"
         r"GRANT|REVOKE|ATTACH|DETACH|PRAGMA|VACUUM|REINDEX|ANALYZE|"
@@ -496,6 +513,10 @@ def evaluate_tool_call(
 
     # Rule 3: Recursively inspect nested dictionaries, lists, and strings for attacks & types
     for arg_key, arg_val in arguments.items():
+        # SQL receives dialect-aware lexical checks below; generic regex scanning
+        # would incorrectly treat words inside SQL string literals as commands.
+        if clean_tool_name == "query_demo_database" and arg_key == "sql":
+            continue
         violation = _inspect_argument_recursively(
             arg_key,
             arg_val,
