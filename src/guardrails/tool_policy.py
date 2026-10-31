@@ -238,6 +238,177 @@ def _inspect_argument_recursively(
         }
 
 
+
+def _validate_read_only_sql(sql: str) -> Optional[Dict[str, str]]:
+    """Conservatively validate one read-only SQL statement.
+
+    Comments and quoted literals are masked before keyword checks, so text inside
+    a string cannot masquerade as SQL syntax. Only one statement is accepted.
+    This is a policy check, not a substitute for a read-only DB connection and
+    the database engine's own authorizer.
+    """
+    masked = []
+    semicolons = []
+    i = 0
+    quote_end = None
+    while i < len(sql):
+        ch = sql[i]
+        nxt = sql[i + 1] if i + 1 < len(sql) else ""
+
+        if quote_end is not None:
+            masked.append("\\n" if ch == "\\n" else " ")
+            if ch == quote_end:
+                if nxt == quote_end:
+                    masked.append(" ")
+                    i += 2
+                    continue
+                quote_end = None
+            elif ch == "\\\\" and nxt:
+                masked.append("\\n" if nxt == "\\n" else " ")
+                i += 2
+                continue
+            i += 1
+            continue
+
+        if ch in ("'", '"', "`"):
+            quote_end = ch
+            masked.append(" ")
+            i += 1
+            continue
+        if ch == "[":
+            quote_end = "]"
+            masked.append(" ")
+            i += 1
+            continue
+        if ch == "-" and nxt == "-":
+            while i < len(sql) and sql[i] not in "\\r\\n":
+                masked.append(" ")
+                i += 1
+            continue
+        if ch == "/" and nxt == "*":
+            end = sql.find("*/", i + 2)
+            if end < 0:
+                return {
+                    "allowed": False,
+                    "risk_level": "CRITICAL",
+                    "rule_triggered": "INVALID_SQL",
+                    "reason": "Unterminated SQL block comment is forbidden.",
+                }
+            masked.extend("\\n" if c == "\\n" else " " for c in sql[i:end + 2])
+            i = end + 2
+            continue
+        if ch == ";":
+            semicolons.append(len(masked))
+        masked.append(ch)
+        i += 1
+
+    if quote_end is not None:
+        return {
+            "allowed": False,
+            "risk_level": "CRITICAL",
+            "rule_triggered": "INVALID_SQL",
+            "reason": "Unterminated SQL quoted value or identifier is forbidden.",
+        }
+
+    normalized = "".join(masked).strip()
+    if semicolons and (len(semicolons) > 1 or normalized[semicolons[0] + 1:].strip()):
+        return {
+            "allowed": False,
+            "risk_level": "CRITICAL",
+            "rule_triggered": "MULTIPLE_SQL_STATEMENTS",
+            "reason": "Only one SQL statement is permitted per tool call.",
+        }
+
+    if not re.match(r"^(?:SELECT|WITH|EXPLAIN)\\b", normalized, re.IGNORECASE):
+        return {
+            "allowed": False,
+            "risk_level": "CRITICAL",
+            "rule_triggered": "MUTATING_SQL",
+            "reason": "Only read-only SELECT, WITH, or EXPLAIN statements are permitted.",
+        }
+
+    forbidden = re.compile(
+        r"\\b(?:INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|REPLACE|"
+        r"GRANT|REVOKE|ATTACH|DETACH|PRAGMA|VACUUM|REINDEX|ANALYZE|"
+        r"CALL|EXEC(?:UTE)?|COPY|LOAD_EXTENSION|INTO)\\b",
+        re.IGNORECASE,
+    )
+    match = forbidden.search(normalized)
+    if match:
+        return {
+            "allowed": False,
+            "risk_level": "CRITICAL",
+            "rule_triggered": "MUTATING_SQL",
+            "reason": f"Read-only SQL policy forbids the operation '{match.group(0)}'.",
+        }
+    return None
+
+
+def open_sandboxed_file(relative_path: str, allowed_dir: str = "data"):
+    """Open a regular file under allowed_dir without following symlinks.
+
+    On POSIX, each path component is opened relative to a directory descriptor
+    with O_NOFOLLOW, preventing symlink traversal during the open itself. On
+    platforms without dir_fd/O_NOFOLLOW support, canonical-path and symlink
+    checks are used as a compatibility fallback.
+    The returned file is opened in binary mode; callers should use a context
+    manager. The current demo tool remains simulation-only.
+    """
+    if not isinstance(relative_path, str) or not relative_path.strip():
+        raise ValueError("Path must be a non-empty string.")
+    raw = relative_path.strip()
+    if "\\0" in raw or "%00" in raw or ":" in raw:
+        raise ValueError("Invalid path.")
+    parts = raw.replace("\\\\", "/").split("/")
+    if any(part in ("", ".", "..") for part in parts):
+        raise ValueError("Path must contain only normal relative path components.")
+
+    root = os.path.realpath(os.path.abspath(allowed_dir))
+    verdict = evaluate_tool_call("read_demo_file", {"path": raw}, allowed_dir=allowed_dir)
+    if not verdict["allowed"]:
+        raise PermissionError(verdict["reason"])
+
+    nofollow = getattr(os, "O_NOFOLLOW", 0)
+    directory = getattr(os, "O_DIRECTORY", 0)
+    if os.name == "posix" and nofollow and directory and os.open in getattr(os, "supports_dir_fd", set()):
+        root_fd = os.open(root, os.O_RDONLY | directory)
+        current_fd = root_fd
+        try:
+            for index, part in enumerate(parts):
+                final = index == len(parts) - 1
+                flags = os.O_RDONLY | nofollow
+                if not final:
+                    flags |= directory
+                next_fd = os.open(part, flags, dir_fd=current_fd)
+                if current_fd != root_fd:
+                    os.close(current_fd)
+                current_fd = next_fd
+            if not __import__("stat").S_ISREG(os.fstat(current_fd).st_mode):
+                raise PermissionError("Only regular files may be opened.")
+            result_fd = current_fd
+            current_fd = -1
+            return os.fdopen(result_fd, "rb")
+        finally:
+            if current_fd >= 0 and current_fd != root_fd:
+                os.close(current_fd)
+            os.close(root_fd)
+
+    candidate = os.path.join(root, *parts)
+    resolved = os.path.realpath(candidate)
+    if os.path.commonpath([root, resolved]) != root or resolved == root:
+        raise PermissionError("Resolved path is outside the allowed directory.")
+    cursor = root
+    for part in parts:
+        cursor = os.path.join(cursor, part)
+        if os.path.islink(cursor):
+            raise PermissionError("Symbolic links are not permitted.")
+    handle = open(resolved, "rb")
+    if not __import__("stat").S_ISREG(os.fstat(handle.fileno()).st_mode):
+        handle.close()
+        raise PermissionError("Only regular files may be opened.")
+    return handle
+
+
 def evaluate_tool_call(
     tool_name: str,
     arguments: Dict[str, Any],
@@ -445,22 +616,11 @@ def evaluate_tool_call(
                 ),
             }
 
-    # Rule 5: Read-only query validation for query_demo_database (SEC-02: read-only enforcement)
+    # Rule 5: Conservative single-statement, read-only SQL validation.
     if clean_tool_name == "query_demo_database":
-        raw_sql = arguments["sql"].strip()
-        # Strip leading SQL comments to inspect effective statement opening
-        effective_sql = re.sub(r"^/\*.*?\*/", "", raw_sql, flags=re.DOTALL).strip()
-        effective_sql = re.sub(r"^--[^\r\n]*", "", effective_sql).strip()
-        if not re.match(r"^(?:SELECT|WITH|EXPLAIN)\b", effective_sql, re.IGNORECASE):
-            return {
-                "allowed": False,
-                "risk_level": "CRITICAL",
-                "rule_triggered": "MUTATING_SQL",
-                "reason": (
-                    f"Tool '{clean_tool_name}' only permits read-only queries (SELECT/WITH/EXPLAIN); "
-                    "mutating or unauthorized statements are blocked."
-                ),
-            }
+        sql_violation = _validate_read_only_sql(arguments["sql"])
+        if sql_violation:
+            return sql_violation
 
     return {
         "allowed": True,
