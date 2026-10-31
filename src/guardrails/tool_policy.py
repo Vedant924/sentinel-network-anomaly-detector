@@ -331,6 +331,14 @@ def _validate_read_only_sql(sql: str) -> Optional[Dict[str, str]]:
             "reason": "Only read-only SELECT, WITH, or EXPLAIN statements are permitted.",
         }
 
+    if re.search(r";\s*--", sql):
+        return {
+            "allowed": False,
+            "risk_level": "HIGH",
+            "rule_triggered": "SQL_INJECTION",
+            "reason": "SQL comment immediately after a statement separator is blocked.",
+        }
+
     # Preserve the existing high-signal SQL injection checks while excluding
     # quoted literals from keyword-based mutation checks.
     if re.search(r"""'\s*OR\s+'1'\s*=\s*'1""", sql, re.IGNORECASE):
