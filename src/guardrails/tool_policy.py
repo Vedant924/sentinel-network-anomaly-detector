@@ -333,14 +333,14 @@ def _validate_read_only_sql(sql: str) -> Optional[Dict[str, str]]:
 
     # Preserve the existing high-signal SQL injection checks while excluding
     # quoted literals from keyword-based mutation checks.
-    if re.search(r"""'\\s*OR\\s+'1'\\s*=\\s*'1""", sql, re.IGNORECASE):
+    if re.search(r"""'\s*OR\s+'1'\s*=\s*'1""", sql, re.IGNORECASE):
         return {
             "allowed": False,
             "risk_level": "HIGH",
             "rule_triggered": "SQL_INJECTION",
             "reason": "SQL tautology injection pattern detected.",
         }
-    if re.search(r"\\bUNION\\s+(?:ALL\\s+)?SELECT\\b", normalized, re.IGNORECASE):
+    if re.search(r"\bUNION\s+(?:ALL\s+)?SELECT\b", normalized, re.IGNORECASE):
         return {
             "allowed": False,
             "risk_level": "HIGH",
