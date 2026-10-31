@@ -283,6 +283,7 @@ def _validate_read_only_sql(sql: str) -> Optional[Dict[str, str]]:
             i += 1
             continue
         if ch == "-" and nxt == "-":
+            comment_after_separator = comment_after_separator or "".join(masked).rstrip().endswith(";")
             while i < len(sql) and sql[i] not in "\r\n":
                 masked.append(" ")
                 i += 1
