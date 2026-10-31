@@ -345,7 +345,7 @@ def _validate_read_only_sql(sql: str) -> Optional[Dict[str, str]]:
             "reason": f"Read-only SQL policy forbids the operation '{mutating.group(0)}'.",
         }
 
-    if re.search(r";\s*--", sql):
+    if comment_after_separator:
         return {
             "allowed": False,
             "risk_level": "HIGH",
