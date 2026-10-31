@@ -256,15 +256,15 @@ def _validate_read_only_sql(sql: str) -> Optional[Dict[str, str]]:
         nxt = sql[i + 1] if i + 1 < len(sql) else ""
 
         if quote_end is not None:
-            masked.append("\\n" if ch == "\\n" else " ")
+            masked.append("\n" if ch == "\n" else " ")
             if ch == quote_end:
                 if nxt == quote_end:
                     masked.append(" ")
                     i += 2
                     continue
                 quote_end = None
-            elif ch == "\\\\" and nxt:
-                masked.append("\\n" if nxt == "\\n" else " ")
+            elif ch == "\\" and nxt:
+                masked.append("\n" if nxt == "\n" else " ")
                 i += 2
                 continue
             i += 1
@@ -281,7 +281,7 @@ def _validate_read_only_sql(sql: str) -> Optional[Dict[str, str]]:
             i += 1
             continue
         if ch == "-" and nxt == "-":
-            while i < len(sql) and sql[i] not in "\\r\\n":
+            while i < len(sql) and sql[i] not in "\r\n":
                 masked.append(" ")
                 i += 1
             continue
@@ -294,7 +294,7 @@ def _validate_read_only_sql(sql: str) -> Optional[Dict[str, str]]:
                     "rule_triggered": "INVALID_SQL",
                     "reason": "Unterminated SQL block comment is forbidden.",
                 }
-            masked.extend("\\n" if c == "\\n" else " " for c in sql[i:end + 2])
+            masked.extend("\n" if c == "\n" else " " for c in sql[i:end + 2])
             i = end + 2
             continue
         if ch == ";":
@@ -310,16 +310,20 @@ def _validate_read_only_sql(sql: str) -> Optional[Dict[str, str]]:
             "reason": "Unterminated SQL quoted value or identifier is forbidden.",
         }
 
-    normalized = "".join(masked).strip()
-    if semicolons and (len(semicolons) > 1 or normalized[semicolons[0] + 1:].strip()):
-        return {
-            "allowed": False,
-            "risk_level": "CRITICAL",
-            "rule_triggered": "MULTIPLE_SQL_STATEMENTS",
-            "reason": "Only one SQL statement is permitted per tool call.",
-        }
+    untrimmed = "".join(masked)
+    normalized = untrimmed.strip()
+    if semicolons:
+        trailing_index = len(untrimmed.rstrip()) - 1
+        if len(semicolons) != 1 or semicolons[0] != trailing_index:
+            return {
+                "allowed": False,
+                "risk_level": "CRITICAL",
+                "rule_triggered": "MULTIPLE_SQL_STATEMENTS",
+                "reason": "Only one SQL statement is permitted per tool call.",
+            }
+        normalized = normalized[:-1].rstrip()
 
-    if not re.match(r"^(?:SELECT|WITH|EXPLAIN)\\b", normalized, re.IGNORECASE):
+    if not re.match(r"^(?:SELECT|WITH|EXPLAIN)\b", normalized, re.IGNORECASE):
         return {
             "allowed": False,
             "risk_level": "CRITICAL",
@@ -328,9 +332,9 @@ def _validate_read_only_sql(sql: str) -> Optional[Dict[str, str]]:
         }
 
     forbidden = re.compile(
-        r"\\b(?:INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|REPLACE|"
+        r"\b(?:INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|REPLACE|"
         r"GRANT|REVOKE|ATTACH|DETACH|PRAGMA|VACUUM|REINDEX|ANALYZE|"
-        r"CALL|EXEC(?:UTE)?|COPY|LOAD_EXTENSION|INTO)\\b",
+        r"CALL|EXEC(?:UTE)?|COPY|LOAD_EXTENSION|INTO)\b",
         re.IGNORECASE,
     )
     match = forbidden.search(normalized)
@@ -357,9 +361,9 @@ def open_sandboxed_file(relative_path: str, allowed_dir: str = "data"):
     if not isinstance(relative_path, str) or not relative_path.strip():
         raise ValueError("Path must be a non-empty string.")
     raw = relative_path.strip()
-    if "\\0" in raw or "%00" in raw or ":" in raw:
+    if "\0" in raw or "%00" in raw or ":" in raw:
         raise ValueError("Invalid path.")
-    parts = raw.replace("\\\\", "/").split("/")
+    parts = raw.replace("\\", "/").split("/")
     if any(part in ("", ".", "..") for part in parts):
         raise ValueError("Path must contain only normal relative path components.")
 
