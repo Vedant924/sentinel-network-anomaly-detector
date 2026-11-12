@@ -23,7 +23,7 @@ def load_events(path):
 
 def _text_report(events, alerts):
     lines = ["SENTINEL | NETWORK ANOMALY REPORT",
-             f"Events analyzed: {len(events)}",
+             f"SENTINEL analyzed {len(events)} event(s).",
              f"Unique sources: {len({event.get('src_ip') for event in events})}",
              f"Alerts: {len(alerts)}"]
     if not alerts:
