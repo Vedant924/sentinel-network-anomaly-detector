@@ -30,8 +30,8 @@ class TestPhase2DetectionRules(unittest.TestCase):
         self.assertEqual(len(detect_high_traffic_volume(rows, byte_threshold=1000000)), 1)
 
     def test_dns_query_burst_and_long_query(self):
-        rows = [event(i, 53, dns_query=f"node-{i}.example.test") for i in range(55)]
-        rows.append(event(55, 53, dns_query=("x" * 90) + ".example.test"))
+        rows = [event(i, port=53, dns_query=f"node-{i}.example.test") for i in range(55)]
+        rows.append(event(55, port=53, dns_query=("x" * 90) + ".example.test"))
         alerts = detect_dns_anomalies(rows)
         rules = {alert["rule_id"] for alert in alerts}
         self.assertIn("DNS_QUERY_BURST", rules)
