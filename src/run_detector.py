@@ -27,7 +27,7 @@ def _text_report(events, alerts):
              f"Unique sources: {len({event.get('src_ip') for event in events})}",
              f"Alerts: {len(alerts)}"]
     if not alerts:
-        lines.append("Status: No configured anomalies detected.")
+        lines.append("No anomalies detected.")
     for number, alert in enumerate(alerts, 1):
         lines.extend([
             f"[{number}] {alert['severity']} | {alert['alert_id']} | {alert['rule_id']}",
