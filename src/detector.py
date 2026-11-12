@@ -331,6 +331,7 @@ def detect_anomalies(events, window_seconds=10, port_threshold=10, rate_threshol
                      failed_threshold=10, byte_threshold=1000000, dns_query_threshold=50,
                      dns_suspicious_length=80, host_threshold=20):
     """Run all Phase 1 and Phase 2 rules, then deduplicate exact alert repeats."""
+    events = list(events)
     alerts = []
     alerts.extend(detect_many_destination_ports(events, window_seconds, port_threshold))
     alerts.extend(detect_high_event_rate(events, window_seconds, rate_threshold))
