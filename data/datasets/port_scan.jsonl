@@ -1,0 +1,14 @@
+{"timestamp":3000,"src_ip":"203.0.113.50","dst_ip":"198.51.100.20","dst_port":21,"protocol":"TCP"}
+{"timestamp":3000.4,"src_ip":"203.0.113.50","dst_ip":"198.51.100.20","dst_port":22,"protocol":"TCP"}
+{"timestamp":3000.8,"src_ip":"203.0.113.50","dst_ip":"198.51.100.20","dst_port":23,"protocol":"TCP"}
+{"timestamp":3001.2,"src_ip":"203.0.113.50","dst_ip":"198.51.100.20","dst_port":25,"protocol":"TCP"}
+{"timestamp":3001.6,"src_ip":"203.0.113.50","dst_ip":"198.51.100.20","dst_port":53,"protocol":"TCP"}
+{"timestamp":3002,"src_ip":"203.0.113.50","dst_ip":"198.51.100.20","dst_port":80,"protocol":"TCP"}
+{"timestamp":3002.4,"src_ip":"203.0.113.50","dst_ip":"198.51.100.20","dst_port":110,"protocol":"TCP"}
+{"timestamp":3002.8,"src_ip":"203.0.113.50","dst_ip":"198.51.100.20","dst_port":135,"protocol":"TCP"}
+{"timestamp":3003.2,"src_ip":"203.0.113.50","dst_ip":"198.51.100.20","dst_port":139,"protocol":"TCP"}
+{"timestamp":3003.6,"src_ip":"203.0.113.50","dst_ip":"198.51.100.20","dst_port":143,"protocol":"TCP"}
+{"timestamp":3004,"src_ip":"203.0.113.50","dst_ip":"198.51.100.20","dst_port":443,"protocol":"TCP"}
+{"timestamp":3004.4,"src_ip":"203.0.113.50","dst_ip":"198.51.100.20","dst_port":445,"protocol":"TCP"}
+{"timestamp":3004.8,"src_ip":"203.0.113.50","dst_ip":"198.51.100.20","dst_port":3306,"protocol":"TCP"}
+{"timestamp":3005.2,"src_ip":"203.0.113.50","dst_ip":"198.51.100.20","dst_port":8080,"protocol":"TCP"}
