@@ -18,3 +18,5 @@ python -m src.run_detector --input data/datasets/mixed_scenarios.jsonl --rule al
 ```
 
 The fixtures contain only supported event fields plus descriptive protocol labels. The current rules do not inspect protocol, destination IP, or payloads. Dataset labels describe test intent, not guaranteed real-world classification.
+
+The unit-test suite includes assertions for each dataset's expected rule outcome and for the structured alert contract.
