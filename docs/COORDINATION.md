@@ -118,6 +118,10 @@ The current detector/security stack is intended to be integrated bottom-up:
 1. PR #6 — guardrails hardening
 2. PR #7 — structured alerts and datasets (currently based on #6)
 3. PR #8 — Phase 2 detection engine (currently based on #7)
+4. PR #10 — Rich dashboard (based on #8; retarget to main after #8 merges)
+5. PR #11 — shared flow aggregator and offline PCAP replay (based on #10; retarget after #10 merges)
+
+PR #9 is this independent coordination-document PR targeting main; it is not part of the code stack.
 
 After each retarget or merge, re-check the relevant GitHub Actions run for the new PR head/base state. Do not assume an earlier green run proves a later commit or retarget is green. Merge only in dependency order, and report each result.
 
