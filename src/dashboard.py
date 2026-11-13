@@ -107,9 +107,9 @@ def render_dashboard(report):
     if not severity_line:
         severity_line = [Text("No alerts", style="dim")]
 
-    console.print(Panel(summary, title=str(report["tool"]), border_style="cyan"))
+    console.print(Panel(summary, title=Text(str(report["tool"])), border_style="cyan"))
     console.print(Panel(Text.assemble(*sum(([item, Text("   ")] for item in severity_line), [])[:-1]),
-                        title="Severity distribution", border_style="cyan"))
+                        title=Text("Severity distribution"), border_style="cyan"))
 
     alerts = Table(title="Alert feed", show_lines=True)
     for heading in ("Severity", "Rule", "Source", "Observed / threshold", "Window (seconds)"):
