@@ -63,7 +63,50 @@ The parent directory must already exist. When `--output` is omitted, the report 
 
 The current rule detects a source contacting **more than** the configured threshold of distinct destination ports within the time window. It is a demonstration rule, not a complete intrusion-detection system.
 
-### 2. AI security guardrails
+### 2. Offline PCAP replay and shared flow aggregation
+
+SENTINEL can replay an existing PCAP/PCAPNG capture into the detector's JSONL event format. This is **offline replay**, not live packet capture.
+
+Install the optional Scapy dependency:
+
+```bash
+python -m pip install -e ".[pcap]"
+```
+
+Replay a capture into JSONL events:
+
+```bash
+python -m src.pcap_replay --input captures/example.pcap --output reports/replayed-events.jsonl
+```
+
+Run detection and display the resulting report:
+
+```bash
+python -m src.run_detector --input reports/replayed-events.jsonl --rule all --correlate --format json | python -m src.dashboard
+```
+
+The replay and C sniffer share one Python flow aggregator. The C sniffer should emit normalized raw packet-record JSONL, then pipe it through the same aggregator:
+
+```bash
+python -m src.flow_aggregator --input captures/sniffer-packets.jsonl --output reports/sniffer-events.jsonl
+```
+
+The packet-record format requires numeric `timestamp`, `src_ip`, `dst_ip`, `src_port`, `dst_port`, `protocol` (`TCP` or `UDP`), and `packet_length` (captured IP packet bytes). Optional packet fields are `tcp_flags` (per-packet TCP flag letters), `is_dns`, and `dns_query`. The C sniffer must emit one packet record per supported captured TCP/UDP packet; it must not implement its own flow aggregation.
+
+The shared aggregator:
+- Groups packets bidirectionally by protocol and both IP/port endpoints.
+- Closes a flow after 30 seconds of inactivity or at end-of-file, and timestamps the event at its last packet.
+- Preserves the first observed direction for event source/destination fields.
+- Counts captured IP bytes in the first-observed direction only. This is not application payload or confirmed delivered bytes.
+- Emits one event per successfully parsed DNS question and excludes DNS messages from generic flow aggregation.
+- Skips ICMP, unsupported transports, and fragments where a transport header cannot be reliably recovered.
+- Does not infer connection success/failure from TCP flags.
+
+The proposed flow-level `packets` count and bidirectional union `tcp_flags` fields remain disabled in detector events until the shared event-schema change is reviewed and merged. The current SYN detection idea is a heuristic over completed flows whose aggregate flags equal `S`, not detection of an isolated SYN packet.
+
+### 3. AI security guardrails
+
+
 
 The guardrail pipeline in `src/guardrails/` includes:
 
@@ -76,7 +119,7 @@ The guardrail pipeline in `src/guardrails/` includes:
 - **Human approval gate:** a proposed tool call marked with `"requires_approval": true` returns `APPROVAL_REQUIRED` and is not simulated unless a trusted caller separately passes `human_approved=True`. Model output cannot grant this approval.
 - **Security evaluation tests:** a repeatable test corpus checks known prompt-injection examples and benign prompts, including a basic false-positive check.
 
-### 3. AI-Assisted Incident Triage Bridge
+### 4. AI-Assisted Incident Triage Bridge
 
 Located in `src/incident_triage.py`, this bridge connects the network detector to the AI guardrail pipeline:
 - Translates structured network alerts into sanitized security analysis prompts.
@@ -84,7 +127,7 @@ Located in `src/incident_triage.py`, this bridge connects the network detector t
 - Dispatches the prompt through `run_guardrail_pipeline` to produce an advisory incident summary with verified deterministic guardrails.
 - Prevents adversarial evasion: if malicious prompt injection text is injected into event telemetry fields, the guardrail immediately blocks processing before any model invocation.
 
-### 4. Combined demonstration
+### 5. Combined demonstration
 
 Run `src/demo.py` to demonstrate the three core capabilities in sequence:
 1. Explainable network anomaly detection (`MANY_DESTINATION_PORTS` and `HIGH_EVENT_RATE`).
@@ -124,7 +167,10 @@ The network detector and AI guardrail pipeline are separate components in this p
 src/
   demo.py                     # Runs the network and guardrail demonstrations
   detector.py                 # Explainable network-event detection rule
-  run_detector.py             # JSONL loader and detector CLI\n  dashboard.py                # Rich dashboard for runner JSON reports
+  run_detector.py             # JSONL loader and detector CLI
+  dashboard.py                # Rich dashboard for runner JSON reports
+  flow_aggregator.py          # Shared packet-to-flow aggregation
+  pcap_replay.py              # Offline Scapy PCAP replay
   guardrails/
     injection_guard.py        # Deterministic prompt-injection checks
     tool_policy.py            # Tool allowlist and argument policy checks
@@ -134,6 +180,9 @@ tests/
   test_demo.py                # Demo-module import smoke test
   test_detector.py            # Network detector tests
   test_runner.py              # Loader and CLI tests
+  test_dashboard.py           # Dashboard report and rendering tests
+  test_flow_aggregator.py     # Bidirectional flow aggregation tests
+  test_pcap_replay.py         # Offline PCAP extraction tests
   test_guardrails/
     test_injection_guard.py   # Prompt-injection tests
     test_tool_policy.py       # Tool policy tests
@@ -150,6 +199,7 @@ docs/
 
 - Python 3.10 or newer is recommended.
 - Rich (installed automatically by `python -m pip install -e .`) for the terminal dashboard.
+- Scapy (optional; install with `python -m pip install -e ".[pcap]"`) for offline PCAP replay.
 - A Nebius Token Factory API key is optional and only needed for live model analysis.
 
 ## Quick start
@@ -239,13 +289,14 @@ GitHub Actions is configured to run the test suite on pushes and pull requests. 
 
 ## Current limitations and next steps
 
-- Network input is synthetic JSONL; live packet capture is not implemented.
+- Live packet capture is not implemented. Offline PCAP replay and a shared packet-to-flow adapter are available; the C sniffer is a separate contributor task.
 - The detector currently implements one network anomaly rule.
 - Prompt-injection and tool-policy checks are deterministic heuristics, not a complete defense against every attack.
 - The evaluation corpus is small and illustrative; it does not establish a real-world detection rate.
 - Approval is a caller-controlled integration hook, not a built-in identity system or approval UI.
 - Live model analysis depends on external API access and valid credentials; offline mock results are simulated.
-- The terminal dashboard is a report viewer, not a live packet monitor or graphical web dashboard.\n- PCAP replay and automatic connection between network alerts and the AI guardrail pipeline remain separate integration work.
+- The terminal dashboard is a report viewer, not a live packet monitor or graphical web dashboard.
+- PCAP replay and automatic connection between network alerts and the AI guardrail pipeline remain separate integration work.
 - The current demo test is a smoke test; broader assertions about demo output and error cases would improve coverage.
 
 Potential next steps include additional tested detection rules, evaluation against a documented benign/malicious test set, performance measurements, approved packet-capture support, stronger end-to-end tests, and a clearer demo interface. These are future work, not current capabilities.
