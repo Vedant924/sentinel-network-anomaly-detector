@@ -149,7 +149,7 @@ docs/
 ## Requirements
 
 - Python 3.10 or newer is recommended.
-- Python 3.10 or newer.\n- Rich (installed automatically by `python -m pip install -e .`) for the terminal dashboard.
+- Rich (installed automatically by `python -m pip install -e .`) for the terminal dashboard.
 - A Nebius Token Factory API key is optional and only needed for live model analysis.
 
 ## Quick start
