@@ -41,14 +41,18 @@ Do not add required fields without a reviewed change to the shared event schema 
 
 ### PCAP replay decisions
 
-The planned offline PCAP adapter will emit **flow-level events**, not one event per packet. Packet-level events would make `HIGH_EVENT_RATE` count packets and could trigger on ordinary high-throughput downloads. The adapter must document its flow key, directionality, idle timeout, aggregation behavior, and timestamp choice. Events must be emitted in timestamp order.
+The planned offline PCAP adapter will emit **flow-level events**, not one event per packet. Packet-level events would make `HIGH_EVENT_RATE` count packets and could trigger on ordinary high-throughput downloads.
 
-- Emit `dst_port` only when a supported transport packet has a real destination port.
-- Skip ICMP and other packets without a destination port under the current required-field contract. Do not invent a port. Revisit only through a shared schema PR if ICMP support is needed.
-- Emit `protocol` as metadata.
-- Do not infer `connection_status` from a SYN or any isolated packet. Only populate it if a defensible connection outcome can be established.
+For ordinary TCP/UDP traffic, use a bidirectional 5-tuple flow key (protocol plus the two IP/port endpoints, normalized so both directions map to one flow). The first observed packet establishes the event's source-to-destination direction. Flush a flow after **30 seconds of inactivity** or at end-of-file, and set the event timestamp to the last packet time in that flow. Emit events in timestamp order. This is an initial replay policy, not a claim that 30 seconds is universally correct for all networks.
+
+DNS queries are the exception to generic flow aggregation: emit one logical event per successfully parsed DNS question, not one per raw packet and not one per long-lived DNS UDP flow. This preserves the meaning of `DNS_QUERY_BURST`. Exclude those query packets from the generic flow record to avoid double counting.
+
+- Emit `dst_port` only when a supported TCP/UDP packet has a real destination port. Skip ICMP, unsupported protocols, and fragments where the destination port cannot be established. Do not invent a port. Revisit only through a shared schema PR if ICMP support is needed.
+- Emit `protocol` as metadata (for example, `TCP` or `UDP`).
+- For a generic flow, `bytes_transferred` may represent the sum of captured IP packet lengths in the first-observed direction only. Document it as captured IP bytes, not application payload bytes or confirmed delivered bytes.
+- Do not infer `connection_status` from a SYN, RST, or any isolated packet. Leave it absent unless a defensible connection outcome can be established from the complete observed exchange.
 - Do not emit `tcp_flags` until that optional field is added to the shared event schema.
-- Do not equate packet count with connection count or packet length with application payload bytes. If packet/flow byte accounting is exported, document exactly what is measured.
+- Do not equate packet count with connection count.
 
 ## Alert and incident contracts
 
