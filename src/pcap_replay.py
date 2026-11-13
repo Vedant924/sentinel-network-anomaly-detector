@@ -53,7 +53,9 @@ def read_pcap_packet_records(path):
         "skipped_non_tcp_udp": 0,
     }
     records = []
-    capture_path = Path(path)\n    reader_class = PcapNgReader if capture_path.suffix.lower() == ".pcapng" else PcapReader\n    reader = reader_class(str(capture_path))
+    capture_path = Path(path)
+    reader_class = PcapNgReader if capture_path.suffix.lower() == ".pcapng" else PcapReader
+    reader = reader_class(str(capture_path))
     try:
         for packet in reader:
             stats["packets_read"] += 1
