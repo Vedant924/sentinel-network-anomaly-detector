@@ -124,7 +124,7 @@ The network detector and AI guardrail pipeline are separate components in this p
 src/
   demo.py                     # Runs the network and guardrail demonstrations
   detector.py                 # Explainable network-event detection rule
-  run_detector.py             # JSONL loader and detector CLI
+  run_detector.py             # JSONL loader and detector CLI\n  dashboard.py                # Rich dashboard for runner JSON reports
   guardrails/
     injection_guard.py        # Deterministic prompt-injection checks
     tool_policy.py            # Tool allowlist and argument policy checks
@@ -149,7 +149,7 @@ docs/
 ## Requirements
 
 - Python 3.10 or newer is recommended.
-- No third-party Python packages are required by the current implementation.
+- Python 3.10 or newer.\n- Rich (installed automatically by `python -m pip install -e .`) for the terminal dashboard.
 - A Nebius Token Factory API key is optional and only needed for live model analysis.
 
 ## Quick start
@@ -245,7 +245,7 @@ GitHub Actions is configured to run the test suite on pushes and pull requests. 
 - The evaluation corpus is small and illustrative; it does not establish a real-world detection rate.
 - Approval is a caller-controlled integration hook, not a built-in identity system or approval UI.
 - Live model analysis depends on external API access and valid credentials; offline mock results are simulated.
-- There is no graphical dashboard or automatic connection between network alerts and the AI guardrail pipeline.
+- The terminal dashboard is a report viewer, not a live packet monitor or graphical web dashboard.\n- PCAP replay and automatic connection between network alerts and the AI guardrail pipeline remain separate integration work.
 - The current demo test is a smoke test; broader assertions about demo output and error cases would improve coverage.
 
 Potential next steps include additional tested detection rules, evaluation against a documented benign/malicious test set, performance measurements, approved packet-capture support, stronger end-to-end tests, and a clearer demo interface. These are future work, not current capabilities.
