@@ -168,7 +168,7 @@ def render_dashboard(report):
         ]
         severity = str(alert.get("severity", "UNKNOWN"))
         title = f"Alert {index} · {alert.get('rule_id', 'UNKNOWN')} · {severity}"
-        console.print(Panel("\n".join(details), title=title,
+        console.print(Panel(Text("\n".join(details)), title=Text(title),
                             border_style=severity_styles.get(severity, "white")))
 
 
