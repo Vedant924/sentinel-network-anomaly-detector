@@ -169,7 +169,8 @@ src/
   detector.py                 # Explainable network-event detection rule
   run_detector.py             # JSONL loader and detector CLI
   dashboard.py                # Rich dashboard for runner JSON reports
-  flow_aggregator.py          # Shared packet-to-flow aggregation\n  pcap_replay.py              # Offline Scapy PCAP replay
+  flow_aggregator.py          # Shared packet-to-flow aggregation
+  pcap_replay.py              # Offline Scapy PCAP replay
   guardrails/
     injection_guard.py        # Deterministic prompt-injection checks
     tool_policy.py            # Tool allowlist and argument policy checks
