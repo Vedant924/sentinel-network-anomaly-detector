@@ -110,7 +110,7 @@ def read_pcap_packet_records(path):
                     records.append(record)
             else:
                 records.append(base)
-            stats["packet_records"] += len(records) - stats["packet_records"]
+            stats["packet_records"] = len(records)
     finally:
         reader.close()
 
