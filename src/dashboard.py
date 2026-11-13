@@ -117,7 +117,9 @@ def render_dashboard(report):
     if report["alerts"]:
         for alert in report["alerts"]:
             severity = str(alert.get("severity", "UNKNOWN"))
-            observed = alert.get("observed", alert.get("observed_count", "—"))
+            evidence = alert.get("evidence", {})
+            port_count = evidence.get("unique_destination_ports", "—") if isinstance(evidence, dict) else "—"
+            observed = alert.get("observed", alert.get("observed_count", port_count))
             threshold = alert.get("threshold", "—")
             start = _timestamp(alert.get("window_start", "—"))
             end = _timestamp(alert.get("window_end", "—"))
