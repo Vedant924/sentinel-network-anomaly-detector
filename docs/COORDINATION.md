@@ -54,6 +54,21 @@ DNS queries are the exception to generic flow aggregation: emit one logical even
 - Do not emit `tcp_flags` until that optional field is added to the shared event schema.
 - Do not equate packet count with connection count.
 
+### Shared packet-to-flow aggregation
+
+The PCAP replay and C sniffer must use **Option A: one shared Python flow aggregator**. The C sniffer emits raw packet records; it must not implement a second flow aggregation algorithm. PCAP replay converts captured packets to the same packet-record format and calls the same Python aggregator.
+
+The normalized packet-record JSONL contract for the shared aggregator is:
+- Required: `timestamp` (finite numeric seconds), `src_ip`, `dst_ip`, `src_port`, `dst_port`, `protocol` (`TCP` or `UDP`), and `packet_length` (captured IP packet length in bytes).
+- Optional: `tcp_flags` (flags on this individual TCP packet, represented by letters), `is_dns` (boolean identifying a parsed DNS message), and `dns_query` (one successfully parsed DNS question name).
+- The C sniffer writes one raw packet record per captured supported TCP/UDP packet. The Python aggregator accepts packet records from a file or stdin, so C output can be piped into it.
+- The aggregator sorts records by timestamp, uses a bidirectional 5-tuple flow key, preserves the first-observed direction for `src_ip`/`dst_ip`/`dst_port`, expires a flow after 30 seconds of inactivity, and timestamps the flow event at its last packet.
+- `packets` counts packets in both directions. The proposed flow-level `tcp_flags` is the union of flags in both directions, uppercase and ordered `FSRPAUEC`. These two output fields remain disabled until the shared event schema PR is reviewed and merged.
+- Generic flow `bytes_transferred` sums captured IP packet lengths in the first-observed direction only. It is not application payload bytes or confirmed delivered bytes.
+- Parsed DNS queries become one event per question; DNS packets are excluded from generic flow aggregation to avoid double counting. ICMP, unsupported transports, and fragments without a recoverable transport header are skipped.
+- A SYN rule must inspect the completed flow's aggregate flags. A flow whose aggregate flags are exactly `S` is a half-open/scan heuristic; a lone SYN packet is not itself a detector event, and the heuristic is not proof of malicious activity.
+- The aggregator never infers `connection_status` from flags.
+
 ## Alert and incident contracts
 
 The current alert contract is documented in [ALERT_SCHEMA.md](ALERT_SCHEMA.md). The runner's JSON report currently exposes these top-level keys:
@@ -87,7 +102,7 @@ Claude's planned detector work (subject to its own review and PRs):
 3. CLI threshold fix
 4. DNS alert aggregation
 5. Validate-once performance improvement
-6. SYN detection rule (after the shared event schema is updated for optional `tcp_flags`)
+6. SYN-flow detection rule (after the shared event schema is updated for optional flow-level `tcp_flags` and `packets`)
 7. Evaluation script
 
 ChatGPT's integration work:
