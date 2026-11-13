@@ -20,10 +20,17 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
+[project.optional-dependencies]
+pcap = [
+    "scapy>=2.5,<3",
+]
+
 [project.scripts]
 sentinel-detector = "src.run_detector:main"
 sentinel-demo = "src.demo:main"
 sentinel-dashboard = "src.dashboard:main"
+sentinel-flow-aggregate = "src.flow_aggregator:main"
+sentinel-pcap-replay = "src.pcap_replay:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
