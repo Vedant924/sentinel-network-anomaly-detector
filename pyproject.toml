@@ -8,6 +8,9 @@ version = "0.2.0"
 description = "Network anomaly detection and deterministic AI security guardrails prototype"
 readme = "README.md"
 requires-python = ">=3.10"
+dependencies = [
+    "rich>=13.7,<15",
+]
 authors = [
     { name = "Vedant924" }
 ]
@@ -20,6 +23,7 @@ classifiers = [
 [project.scripts]
 sentinel-detector = "src.run_detector:main"
 sentinel-demo = "src.demo:main"
+sentinel-dashboard = "src.dashboard:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
