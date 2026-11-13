@@ -39,7 +39,7 @@ def read_pcap_packet_records(path):
         from scapy.layers.dns import DNS, DNSQR
         from scapy.layers.inet import IP, TCP, UDP
         from scapy.layers.inet6 import IPv6, IPv6ExtHdrFragment
-        from scapy.utils import PcapReader
+        from scapy.utils import PcapNgReader, PcapReader
     except ImportError as exc:
         raise RuntimeError(
             'PCAP replay requires Scapy. Install it with: python -m pip install -e ".[pcap]"'
@@ -53,7 +53,7 @@ def read_pcap_packet_records(path):
         "skipped_non_tcp_udp": 0,
     }
     records = []
-    reader = PcapReader(str(Path(path)))
+    capture_path = Path(path)\n    reader_class = PcapNgReader if capture_path.suffix.lower() == ".pcapng" else PcapReader\n    reader = reader_class(str(capture_path))
     try:
         for packet in reader:
             stats["packets_read"] += 1
