@@ -27,7 +27,7 @@ class PcapReplayTests(unittest.TestCase):
         dns = (
             IP(src="192.0.2.10", dst="198.51.100.53")
             / UDP(sport=53000, dport=53)
-            / DNS(rd=1, qd=DNSQR(qname="example.com"))
+            / DNS(rd=1, qdcount=1, qd=DNSQR(qname="example.com"))
         )
         icmp = IP(src="192.0.2.10", dst="198.51.100.1") / ICMP()
         fragment = (
