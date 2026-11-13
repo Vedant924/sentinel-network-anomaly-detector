@@ -13,12 +13,24 @@ from src.flow_aggregator import aggregate_packets
 
 def _dns_questions(packet, dns_layer, dnsqr_type):
     """Return successfully decoded DNS question names from one DNS query."""
-    if dns_layer is None or int(getattr(dns_layer, "qr", 1)) != 0:
+    if dns_layer is None:
         return []
-    question_count = int(getattr(dns_layer, "qdcount", 0) or 0)
+    try:
+        if int(getattr(dns_layer, "qr", 1)) != 0:
+            return []
+    except (TypeError, ValueError):
+        return []
+
     question = getattr(dns_layer, "qd", None)
+    if not isinstance(question, dnsqr_type):
+        question = packet.getlayer(dnsqr_type)
+    if not isinstance(question, dnsqr_type):
+        return []
+
+    question_count = int(getattr(dns_layer, "qdcount", 0) or 0)
     names = []
-    for _ in range(question_count):
+    # A parsed DNS question is still useful if qdcount was omitted or zero.
+    for _ in range(max(1, min(question_count, 64))):
         if not isinstance(question, dnsqr_type):
             break
         raw_name = getattr(question, "qname", b"")
@@ -31,7 +43,6 @@ def _dns_questions(packet, dns_layer, dnsqr_type):
             names.append(name)
         question = getattr(question, "payload", None)
     return names
-
 
 def read_pcap_packet_records(path):
     """Read supported TCP/UDP packets and normalize them for flow_aggregator."""
