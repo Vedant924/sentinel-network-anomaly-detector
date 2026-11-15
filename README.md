@@ -42,7 +42,10 @@ Security tools should do more than produce an alert: their decisions should be u
   - `DNS_QUERY_BURST` and `SUSPICIOUS_DNS_QUERY`: detect DNS query bursts and unusual query-name characteristics.
   - `MANY_DESTINATION_HOSTS`: detects a source contacting many distinct destination IP addresses.
 - Correlates multiple alerts from the same source with `--correlate` and deduplicates exact repeated alert IDs.
-- Supports `--rule {ports,rate,failed,volume,dns,hosts,all}` and per-rule threshold options.
+- Supports `--rule {ports,rate,failed,volume,dns,hosts,all}`; the default is `all`.
+- Supports separate port and event-rate thresholds with `--threshold` and `--rate-threshold`.
+- Supports opt-in `--skip-invalid` to skip malformed JSON or schema-invalid records while recording a bounded sample of skipped lines in JSON reports. Strict input handling remains the default.
+- Reports one alert per continuous burst, using the peak window. Severity is a heuristic ratio band: `LOW` below 1.5× threshold, `MEDIUM` from 1.5× to below 3×, and `HIGH` at 3× or above.
 - Supports `--format json` for machine-readable reports containing event counts, unique source counts, severity summaries, and full alert details.
 - Supports `--output PATH` to save text or JSON reports to a file for sharing or later review.
 - Validates event fields and reports malformed input through the command-line interface.
@@ -61,7 +64,13 @@ python -m src.run_detector --format json --output reports/latest-report.json
 
 The parent directory must already exist. When `--output` is omitted, the report is printed to the terminal as before.
 
-The current rule detects a source contacting **more than** the configured threshold of distinct destination ports within the time window. It is a demonstration rule, not a complete intrusion-detection system.
+By default, `--rule all` runs every detection rule. The default port threshold is 10 and the default event-rate threshold is 20 events per window. `--threshold` sets the port threshold; if `--rate-threshold` is omitted, the legacy `--threshold` value also sets the event-rate threshold. Otherwise, `--rate-threshold` controls the event-rate rule independently.
+
+`--skip-invalid` is opt-in. Without it, the loader stops at the first malformed JSON line or invalid event. With it, invalid lines are skipped and the JSON report includes `invalid_records_skipped` plus up to 20 `invalid_record_samples`; valid events continue through detection.
+
+Each continuous threshold-breach burst produces one batch alert describing its peak window (the earliest peak wins ties). The alert is emitted after the burst ends, not at the first threshold crossing. Severity is calculated from `observed / threshold`: `LOW` below 1.5×, `MEDIUM` from 1.5× to below 3×, and `HIGH` at 3× or more. These are heuristic triage bands, not calibrated risk scores or proof of malicious activity.
+
+The port rule detects a source contacting **more than** the configured number of distinct destination ports within the time window. It is a demonstration rule, not a complete intrusion-detection system.
 
 ### 2. Offline PCAP replay and shared flow aggregation
 
@@ -104,7 +113,24 @@ The shared aggregator:
 
 The proposed flow-level `packets` count and bidirectional union `tcp_flags` fields remain disabled in detector events until the shared event-schema change is reviewed and merged. The current SYN detection idea is a heuristic over completed flows whose aggregate flags equal `S`, not detection of an isolated SYN packet.
 
-### 3. AI security guardrails
+### 3. Rich terminal dashboard
+
+`src/dashboard.py` renders the detector's JSON report as a readable terminal table. It can read from a report file or standard input:
+
+```bash
+python -m src.run_detector --rule all --format json | python -m src.dashboard
+python -m src.dashboard --input reports/latest-report.json
+```
+
+Use `--follow` to refresh the view when the report file changes:
+
+```bash
+python -m src.dashboard --input reports/latest-report.json --follow --refresh-interval 1
+```
+
+This is a terminal report viewer, not a graphical web dashboard or live packet monitor.
+
+### 4. AI security guardrails
 
 
 
@@ -119,7 +145,7 @@ The guardrail pipeline in `src/guardrails/` includes:
 - **Human approval gate:** a proposed tool call marked with `"requires_approval": true` returns `APPROVAL_REQUIRED` and is not simulated unless a trusted caller separately passes `human_approved=True`. Model output cannot grant this approval.
 - **Security evaluation tests:** a repeatable test corpus checks known prompt-injection examples and benign prompts, including a basic false-positive check.
 
-### 4. AI-Assisted Incident Triage Bridge
+### 5. AI-Assisted Incident Triage Bridge
 
 Located in `src/incident_triage.py`, this bridge connects the network detector to the AI guardrail pipeline:
 - Translates structured network alerts into sanitized security analysis prompts.
@@ -127,7 +153,7 @@ Located in `src/incident_triage.py`, this bridge connects the network detector t
 - Dispatches the prompt through `run_guardrail_pipeline` to produce an advisory incident summary with verified deterministic guardrails.
 - Prevents adversarial evasion: if malicious prompt injection text is injected into event telemetry fields, the guardrail immediately blocks processing before any model invocation.
 
-### 5. Combined demonstration
+### 6. Combined demonstration
 
 Run `src/demo.py` to demonstrate the three core capabilities in sequence:
 1. Explainable network anomaly detection (`MANY_DESTINATION_PORTS` and `HIGH_EVENT_RATE`).
@@ -166,7 +192,7 @@ The network detector and AI guardrail pipeline are separate components in this p
 ```text
 src/
   demo.py                     # Runs the network and guardrail demonstrations
-  detector.py                 # Explainable network-event detection rule
+  detector.py                 # Explainable network-event detection rules
   run_detector.py             # JSONL loader and detector CLI
   dashboard.py                # Rich dashboard for runner JSON reports
   flow_aggregator.py          # Shared packet-to-flow aggregation
@@ -179,6 +205,7 @@ src/
 tests/
   test_demo.py                # Demo-module import smoke test
   test_detector.py            # Network detector tests
+  test_alert_datasets.py       # Dataset and severity regression tests
   test_runner.py              # Loader and CLI tests
   test_dashboard.py           # Dashboard report and rendering tests
   test_flow_aggregator.py     # Bidirectional flow aggregation tests
@@ -290,16 +317,16 @@ GitHub Actions is configured to run the test suite on pushes and pull requests. 
 ## Current limitations and next steps
 
 - Live packet capture is not implemented. Offline PCAP replay and a shared packet-to-flow adapter are available; the C sniffer is a separate contributor task.
-- The detector currently implements one network anomaly rule.
+- Network rules are deterministic heuristics; they do not provide threat-intelligence confirmation or prove malicious activity.
 - Prompt-injection and tool-policy checks are deterministic heuristics, not a complete defense against every attack.
 - The evaluation corpus is small and illustrative; it does not establish a real-world detection rate.
 - Approval is a caller-controlled integration hook, not a built-in identity system or approval UI.
 - Live model analysis depends on external API access and valid credentials; offline mock results are simulated.
 - The terminal dashboard is a report viewer, not a live packet monitor or graphical web dashboard.
-- PCAP replay and automatic connection between network alerts and the AI guardrail pipeline remain separate integration work.
+- PCAP replay produces normalized detector events; the incident-triage bridge is available separately and is not an automatic live-response system.
 - The current demo test is a smoke test; broader assertions about demo output and error cases would improve coverage.
 
-Potential next steps include additional tested detection rules, evaluation against a documented benign/malicious test set, performance measurements, approved packet-capture support, stronger end-to-end tests, and a clearer demo interface. These are future work, not current capabilities.
+Potential next steps include broader evaluation against documented benign/malicious test sets, performance measurements, approved live packet-capture support, stronger end-to-end tests, and a graphical interface. These are future work, not current capabilities.
 
 ## Safety and responsible use
 
