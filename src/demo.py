@@ -8,6 +8,9 @@ from src.incident_triage import triage_network_alert
 from src.run_detector import load_events, main as detector_main
 
 
+DEMO_INPUT = "data/datasets/port_scan_high.jsonl"
+
+
 def _line(char="=", width=64):
     print(char * width)
 
@@ -22,15 +25,15 @@ def main():
 
     print("\n[1/3] NETWORK ANOMALY DETECTION")
     _line("-")
-    print("Rule: flag a source contacting more than 10 distinct ports")
-    print("      within a 10-second window.")
-    print("Input: data/sample_events.jsonl")
-    detector_main()
+    print("Rules: MANY_DESTINATION_PORTS and HIGH_EVENT_RATE")
+    print("       using a 10-second window and the documented default thresholds.")
+    print(f"Input: {DEMO_INPUT}")
+    detector_main(["--input", DEMO_INPUT, "--rule", "all", "--correlate"])
 
     print("\n[2/3] AI-ASSISTED INCIDENT TRIAGE BRIDGE (Detector -> Guardrail)")
     _line("-")
-    events = load_events("data/sample_events.jsonl")
-    alerts = detect_anomalies(events, window_seconds=10, port_threshold=10, rate_threshold=10)
+    events = load_events(DEMO_INPUT)
+    alerts = detect_anomalies(events, window_seconds=10, port_threshold=10, rate_threshold=20)
     if alerts:
         sample_alert = alerts[0]
         print(f"Feeding network alert [{sample_alert['rule']}] into AI Guardrail pipeline...")
