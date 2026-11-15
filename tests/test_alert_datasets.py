@@ -46,5 +46,43 @@ class TestCuratedDatasets(unittest.TestCase):
                          {"MANY_DESTINATION_PORTS", "HIGH_EVENT_RATE"})
 
 
+class TestSeverityCalibrationFixtures(unittest.TestCase):
+    def port_alert(self, filename):
+        events = load_events(f"data/datasets/{filename}")
+        alerts = detect_many_destination_ports(events, window_seconds=10, threshold=10)
+        self.assertEqual(len(alerts), 1)
+        return alerts[0]
+
+    def rate_alert(self, filename):
+        events = load_events(f"data/datasets/{filename}")
+        alerts = detect_high_event_rate(events, window_seconds=10, max_events=20)
+        self.assertEqual(len(alerts), 1)
+        return alerts[0]
+
+    def test_twenty_ports_is_medium(self):
+        alert = self.port_alert("port_scan_medium.jsonl")
+        self.assertEqual(alert["rule_id"], "MANY_DESTINATION_PORTS")
+        self.assertEqual(alert["observed"], 20)
+        self.assertEqual(alert["severity"], "MEDIUM")
+
+    def test_sixty_ports_is_high(self):
+        alert = self.port_alert("port_scan_high.jsonl")
+        self.assertEqual(alert["rule_id"], "MANY_DESTINATION_PORTS")
+        self.assertEqual(alert["observed"], 60)
+        self.assertEqual(alert["severity"], "HIGH")
+
+    def test_forty_events_is_medium(self):
+        alert = self.rate_alert("high_event_rate_medium.jsonl")
+        self.assertEqual(alert["rule_id"], "HIGH_EVENT_RATE")
+        self.assertEqual(alert["observed"], 40)
+        self.assertEqual(alert["severity"], "MEDIUM")
+
+    def test_one_hundred_events_is_high(self):
+        alert = self.rate_alert("high_event_rate_high.jsonl")
+        self.assertEqual(alert["rule_id"], "HIGH_EVENT_RATE")
+        self.assertEqual(alert["observed"], 100)
+        self.assertEqual(alert["severity"], "HIGH")
+
+
 if __name__ == "__main__":
     unittest.main()
