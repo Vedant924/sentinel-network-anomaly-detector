@@ -39,7 +39,7 @@ Security tools should do more than produce an alert: their decisions should be u
   - `HIGH_EVENT_RATE`: detects event bursts from one source.
   - `REPEATED_FAILED_CONNECTIONS`: detects repeated refused, reset, rejected, failed, and timed-out connections.
   - `HIGH_TRAFFIC_VOLUME`: detects high byte volume in a sliding window.
-  - `DNS_QUERY_BURST` and `SUSPICIOUS_DNS_QUERY`: detect DNS query bursts and unusual query-name characteristics.
+  - `DNS_QUERY_BURST`: detects DNS query bursts. `SUSPICIOUS_DNS_QUERY`: emits one alert per source for each cluster of suspicious query names (consecutive matches no more than the configured gap apart); `observed` counts suspicious queries, and the alert window spans the cluster's first to last match.
   - `MANY_DESTINATION_HOSTS`: detects a source contacting many distinct destination IP addresses.
 - Correlates multiple alerts from the same source with `--correlate` and deduplicates exact repeated alert IDs.
 - Supports `--rule {ports,rate,failed,volume,dns,hosts,all}`; the default is `all`.
